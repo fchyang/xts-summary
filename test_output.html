@@ -1,0 +1,27 @@
+<!DOCTYPE html>
+<html><head><meta charset='utf-8'><title>Table Diff</title>
+<style>
+body {font-family:Arial, sans-serif; margin:0; padding:0;}
+.container {display:flex; width:100%;}
+.col {flex:1; padding:10px; box-sizing:border-box; overflow:auto;}
+table {border-collapse:collapse; margin:10px 0; width:100%;}
+th, td {border:1px solid #aaa; padding:4px 8px;}
+h2 {margin-top:0;}
+.testdetails td.module   {background:none;}
+.testdetails th.module   {background:none;}
+.testdetails td.testname {background:#d4e9a9;}
+.testdetails td.failed   {background:#fa5858;}
+.testdetails td.failuredetails {background:#d4e9a9;}
+.testdetails th          {background:#a5c639 !important;}
+.testdetails th.module   {background:none !important;}
+    .summary-header {background:#a5c639 !important; border: solid 1px #aaa;}
+.summary-data {background:#d4e9a9;}
+</style></head><body>
+<div class='container'>
+<div class='col'><h2>ABC123</h2>
+<table class='testdetails'><tr><th colspan="3" class="module" style="text-align:left;">A</th></tr><tr><th>Test</th><th>Result</th><th>Details</th></tr><tr><td class="module">B</td><td>2</td><td></td></tr></table>
+</div>
+<div class='col'><h2>XYZ789</h2>
+<table class='testdetails'><tr><th colspan="3" class="module" style="text-align:left;">A</th></tr><tr><th>Test</th><th>Result</th><th>Details</th></tr><tr><td class="module">B</td><td>3</td><td></td></tr></table>
+</div>
+</div></body></html>
