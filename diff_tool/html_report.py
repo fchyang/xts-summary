@@ -189,22 +189,21 @@ def generate_report(
         "<script src='https://cdn.jsdelivr.net/npm/chart.js'></script>"
         "<script>"
         "var ctx=document.getElementById('moduleChart').getContext('2d');"
-        f"new Chart(ctx,{{type:'pie',data:{{labels:['Same modules','Degrade modules'],datasets:[{{data:[{same_modules},{degrade_modules}],backgroundColor:['#4caf50','#f44336']}}]}} ,options:{{responsive:false,maintainAspectRatio:false}}}});"
+        f"new Chart(ctx,{{type:'pie',data:{{labels:['Same modules ({same_modules})','Degrade modules ({degrade_modules})'],datasets:[{{data:[{same_modules},{degrade_modules}],backgroundColor:['#4caf50','#f44336']}}]}} ,options:{{responsive:false,maintainAspectRatio:false}}}});"
         "</script>"
     )
-    # Build left summary: include left summary, CTS Diff block, module summary, and chart (replace testnames table)
+    # Build left summary: include left summary, CTS Diff block, and chart (module summary removed)
     left_summary_combined = (
         "<div class='summary-wrapper'>"
         "<div class='left-summary'>" + ''.join(left_summary) + "</div>"
         "<div class='right-summary'>"
         "<div class='cts-diff'>CTS Diff</div>"
-        + module_summary +
-        chart_html + chart_script +
+        + chart_html + chart_script +
         "</div>"
         "</div>"
     )
-    # Placeholder for right side to keep equal height (module summary hidden)
-    right_placeholder = f"<div class='right-summary' style='visibility:hidden;'>{module_summary}</div>"
+    # Right side keeps its summary tables (module summary removed)
+    right_placeholder = "<div class='right-summary' style='visibility:hidden;'></div>"
     right_summary_combined = f"<div class='summary-wrapper'><div class='left-summary'>{''.join(right_summary)}</div>{right_placeholder}</div>"
 
     parts = [
