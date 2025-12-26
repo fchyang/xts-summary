@@ -43,6 +43,7 @@ h2 {margin-top:0.5em;}
     .col + .col .right-summary {visibility:hidden; width:0;}
     .summary-wrapper .right-summary {display:flex; flex-direction:column; gap:5px;}
     .cts-diff {background:orange; padding:4px; font-weight:bold; text-align:center; margin-top:12px;}
+.chart {margin-top:-0.5em;}
 </style></head><body>
 <div class='container'>"""
 HTML_FOOTER = """</div></body></html>"""
@@ -50,6 +51,36 @@ MODULE_ROW_TMPL = '<tr><th colspan="3" class="module" style="text-align:left;">{
 TABLE_HEADER   = '<tr><th>Test</th><th>Result</th><th>Details</th></tr>'
 
 def _make_table(df: pd.DataFrame) -> str:
+    """Convert a DataFrame into the custom HTML table with proper CSS classes.
+    The first row is treated as the module name, subsequent rows contain test, result, details.
+    Missing columns are padded with empty strings to avoid unpack errors.
+    """
+    rows = df.values.tolist()
+    if not rows:
+        return "<table class='testdetails'></table>"
+
+    # Module title (left‑aligned, no background)
+    module_name = rows[0][0]
+    parts = [MODULE_ROW_TMPL.format(module=module_name), TABLE_HEADER]
+
+    for row in rows[1:]:
+        # Ensure three columns
+        test, result, details = (list(row) + ["", "", ""])[:3]
+        # Skip possible extra header rows
+        if test == "Test" and result == "Result" and details == "Details":
+            continue
+        col_class = "testname" if "." in test else "module"
+        test_td = f'<td class="{col_class}">{test}</td>'
+        if result.strip().lower() == "fail":
+            result_td = f'<td class="failed">{result}</td>'
+            details_td = f'<td class="failuredetails">{details}</td>'
+        else:
+            result_td = f'<td>{result}</td>'
+            details_td = f'<td>{details}</td>'
+        parts.append(f'<tr>{test_td}{result_td}{details_td}</tr>')
+
+    return "<table class='testdetails'>" + "".join(parts) + "</table>"
+
     """Convert a DataFrame into the custom HTML table with proper CSS classes.
     The first row is treated as the module name, subsequent rows contain test, result, details.
     Missing columns are padded with empty strings to avoid unpack errors.
@@ -152,9 +183,28 @@ def generate_report(
     same_modules = len(left_modules & right_modules)
     degrade_modules = len(left_modules ^ right_modules)
     module_summary = f"<table class='summary'><tr><th class='summary-header'>Same modules</th><td class='summary-data'>{same_modules}</td></tr><tr><th class='summary-header'>Degrade modules</th><td class='summary-data' style='background:#fa5858;'>{degrade_modules}</td></tr></table>"
-    left_summary_combined = f"<div class='summary-wrapper'><div class='left-summary'>{''.join(left_summary)}</div><div class='right-summary'><div class='cts-diff'>CTS Diff</div><div>{module_summary}</div><div>{overlap_summary}</div></div></div>"
-    # Placeholder for right side to keep equal height
-    right_placeholder = f"<div class='right-summary' style='visibility:hidden;'>{module_summary}{overlap_summary}</div>"
+    # Prepare a simple pie chart for module comparison
+    chart_html = "<div class='chart'><canvas id='moduleChart' width='200' height='200'></canvas></div>"
+    chart_script = (
+        "<script src='https://cdn.jsdelivr.net/npm/chart.js'></script>"
+        "<script>"
+        "var ctx=document.getElementById('moduleChart').getContext('2d');"
+        f"new Chart(ctx,{{type:'pie',data:{{labels:['Same modules','Degrade modules'],datasets:[{{data:[{same_modules},{degrade_modules}],backgroundColor:['#4caf50','#f44336']}}]}} ,options:{{responsive:false,maintainAspectRatio:false}}}});"
+        "</script>"
+    )
+    # Build left summary: include left summary, CTS Diff block, module summary, and chart (replace testnames table)
+    left_summary_combined = (
+        "<div class='summary-wrapper'>"
+        "<div class='left-summary'>" + ''.join(left_summary) + "</div>"
+        "<div class='right-summary'>"
+        "<div class='cts-diff'>CTS Diff</div>"
+        + module_summary +
+        chart_html + chart_script +
+        "</div>"
+        "</div>"
+    )
+    # Placeholder for right side to keep equal height (module summary hidden)
+    right_placeholder = f"<div class='right-summary' style='visibility:hidden;'>{module_summary}</div>"
     right_summary_combined = f"<div class='summary-wrapper'><div class='left-summary'>{''.join(right_summary)}</div>{right_placeholder}</div>"
 
     parts = [
