@@ -19,7 +19,7 @@ body {font-family:Arial, sans-serif; margin:0; padding:0;}
 /* vertical divider between columns */
 .col + .col {border-left:1px dashed #aaa;}
 
-table {border-collapse:collapse; margin:10px 0; width:100%;}
+table {border-collapse:collapse; margin:10px 0; width:auto;}
 
 th, td {border:1px solid #aaa; padding:4px 8px;}
 h2 {margin-top:0;}
@@ -31,7 +31,8 @@ h2 {margin-top:0;}
 .testdetails th          {background:#a5c639 !important;}
 .testdetails th.module   {background:none !important;}
 .summary-header {background:#a5c639 !important; border: solid 1px #aaa;}
-    .summary-data {background:#d4e9a9;}
+    .summary-data {background:#d4e9a9; word-break:break-all; white-space:normal;}
+    .summary td {max-width:490px; word-break:break-all; white-space:normal; overflow-wrap:anywhere;}
 </style></head><body>
 <div class='container'>"""
 HTML_FOOTER = """</div></body></html>"""
@@ -128,6 +129,7 @@ def generate_report(
     # Build summary tables if sources provided
     left_summary = _make_summary_table(left_summary_source) if left_summary_source else []
     right_summary = _make_summary_table(right_summary_source) if right_summary_source else []
+
     parts = [
         HTML_HEADER,
         f"<div class='col'>",
