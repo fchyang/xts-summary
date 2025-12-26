@@ -43,6 +43,7 @@ h2 {margin-top:0.5em;}
     .col + .col .right-summary {visibility:hidden; width:0;}
     .summary-wrapper .right-summary {display:flex; flex-direction:column; gap:5px;}
     .cts-diff {background:orange; padding:4px; font-weight:bold; text-align:center; margin-top:12px;}
+.degrade-modules {color:#b22222;}
 .chart {margin-top:-0.5em;}
 </style></head><body>
 <div class='container'>"""
@@ -184,7 +185,7 @@ def generate_report(
     degrade_modules = len(left_modules ^ right_modules)
     module_summary = f"<table class='summary'><tr><th class='summary-header'>Same modules</th><td class='summary-data'>{same_modules}</td></tr><tr><th class='summary-header'>Degrade modules</th><td class='summary-data' style='background:#fa5858;'>{degrade_modules}</td></tr></table>"
     # Prepare a simple pie chart for module comparison
-    chart_html = "<div class='chart'><canvas id='moduleChart' width='200' height='200'></canvas></div>"
+    chart_html = "<div class='chart'><canvas id='moduleChart' width='230' height='230' style='width:230px;height:230px;'></canvas></div>"
     chart_script = (
         "<script src='https://cdn.jsdelivr.net/npm/chart.js'></script>"
         "<script>"
@@ -192,13 +193,15 @@ def generate_report(
         f"new Chart(ctx,{{type:'pie',data:{{labels:['Same modules ({same_modules})','Degrade modules ({degrade_modules})'],datasets:[{{data:[{same_modules},{degrade_modules}],backgroundColor:['#4caf50','#f44336']}}]}} ,options:{{responsive:false,maintainAspectRatio:false}}}});"
         "</script>"
     )
-    # Build left summary: include left summary, CTS Diff block, and chart (module summary removed)
+    # Build left summary: include left summary, CTS Diff block, chart, and list of degraded module names
+    degrade_module_names = left_modules.symmetric_difference(right_modules)
+    degrade_modules_list_html = "<div class='degrade-modules'>Degrade modules:<br>" + '<br>'.join(sorted(degrade_module_names)) + "</div>"
     left_summary_combined = (
         "<div class='summary-wrapper'>"
         "<div class='left-summary'>" + ''.join(left_summary) + "</div>"
         "<div class='right-summary'>"
         "<div class='cts-diff'>CTS Diff</div>"
-        + chart_html + chart_script +
+        + chart_html + chart_script + degrade_modules_list_html +
         "</div>"
         "</div>"
     )
