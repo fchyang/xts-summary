@@ -100,8 +100,20 @@ def main(argv: List[str] | None = None) -> None:
         left_title,
         right_title,
         output_path,
+        args.left,
+        args.right,
     )
-    log.info("Diff report written to %s", output_path)
+    result_path = generate_report(
+        left_dfs,
+        right_dfs,
+        diffs,
+        left_title,
+        right_title,
+        output_path,
+        args.left,
+        args.right,
+    )
+    log.info("Diff report written to %s", result_path)
 
 
 if __name__ == "__main__":
