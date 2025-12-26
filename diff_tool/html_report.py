@@ -22,7 +22,7 @@ body {font-family:Arial, sans-serif; margin:0; padding:0;}
 table {border-collapse:collapse; margin:10px 0; width:auto;}
 
 th, td {border:1px solid #aaa; padding:4px 8px;}
-h2 {margin-top:0;}
+h2 {margin-top:0.5em;}
 .testdetails td.module   {background:none;}
 .testdetails th.module   {background:none;}
 .testdetails td.testname {background:#d4e9a9;}
@@ -30,9 +30,19 @@ h2 {margin-top:0;}
 .testdetails td.failuredetails {background:#d4e9a9;}
 .testdetails th          {background:#a5c639 !important;}
 .testdetails th.module   {background:none !important;}
-.summary-header {background:#a5c639 !important; border: solid 1px #aaa;}
+.summary-header {background:#a5c639 !important; border: solid 1px #aaa; text-align:left;}
     .summary-data {background:#d4e9a9; word-break:break-all; white-space:normal;}
     .summary td {max-width:490px; word-break:break-all; white-space:normal; overflow-wrap:anywhere;}
+
+    
+
+    .col + .col .summary {margin-left:0;}
+    .summary-wrapper {display:flex; align-items:flex-start; gap:10px;}
+    .col + .col .summary-wrapper {justify-content:flex-start;}
+    .col + .col .left-summary {margin-left:0;}
+    .col + .col .right-summary {visibility:hidden; width:0;}
+    .summary-wrapper .right-summary {display:flex; flex-direction:column; gap:5px;}
+    .cts-diff {background:orange; padding:4px; font-weight:bold; text-align:center; margin-top:12px;}
 </style></head><body>
 <div class='container'>"""
 HTML_FOOTER = """</div></body></html>"""
@@ -129,17 +139,34 @@ def generate_report(
     # Build summary tables if sources provided
     left_summary = _make_summary_table(left_summary_source) if left_summary_source else []
     right_summary = _make_summary_table(right_summary_source) if right_summary_source else []
+    # Compute overlap statistics of test names between left and right
+    # Extract only actual test names (contain a dot) from the first column of each testdetails DataFrame
+    left_tests = {str(val) for df in left_dfs for val in df.iloc[:, 0].astype(str).tolist() if '.' in str(val)}
+    right_tests = {str(val) for df in right_dfs for val in df.iloc[:, 0].astype(str).tolist() if '.' in str(val)}
+    same_count = len(left_tests & right_tests)
+    diff_count = len(left_tests ^ right_tests)
+    overlap_summary = f"<table class='summary'><tr><th class='summary-header'>Same testnames</th><td class='summary-data'>{same_count}</td></tr><tr><th class='summary-header'>Degrade testnames</th><td class='summary-data' style='background:#fa5858;'>{diff_count}</td></tr></table>"
+    # Compute module overlap statistics
+    left_modules = {str(df.iloc[0,0]) for df in left_dfs}
+    right_modules = {str(df.iloc[0,0]) for df in right_dfs}
+    same_modules = len(left_modules & right_modules)
+    degrade_modules = len(left_modules ^ right_modules)
+    module_summary = f"<table class='summary'><tr><th class='summary-header'>Same modules</th><td class='summary-data'>{same_modules}</td></tr><tr><th class='summary-header'>Degrade modules</th><td class='summary-data' style='background:#fa5858;'>{degrade_modules}</td></tr></table>"
+    left_summary_combined = f"<div class='summary-wrapper'><div class='left-summary'>{''.join(left_summary)}</div><div class='right-summary'><div class='cts-diff'>CTS Diff</div><div>{module_summary}</div><div>{overlap_summary}</div></div></div>"
+    # Placeholder for right side to keep equal height
+    right_placeholder = f"<div class='right-summary' style='visibility:hidden;'>{module_summary}{overlap_summary}</div>"
+    right_summary_combined = f"<div class='summary-wrapper'><div class='left-summary'>{''.join(right_summary)}</div>{right_placeholder}</div>"
 
     parts = [
         HTML_HEADER,
         f"<div class='col'>",
         f"<h2>{left_title}</h2>" if left_title else "",
-        *left_summary,
+        left_summary_combined,
         *[_make_table(df) for df in left_dfs],
         "</div>",
         f"<div class='col'>",
         f"<h2>{right_title}</h2>" if right_title else "",
-        *right_summary,
+        right_summary_combined,
         *[_make_table(df) for df in right_dfs],
         "</div>",
         HTML_FOOTER,
