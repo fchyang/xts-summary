@@ -195,6 +195,13 @@ def generate_report(
     )
     # Build left summary: include left summary, CTS Diff block, chart, and list of degraded module names
     degrade_module_names = left_modules.symmetric_difference(right_modules)
+    # Remove the ABI prefix (e.g., "armeabi-v7a") from module names for display
+    cleaned_module_names = []
+    for name in degrade_module_names:
+        # Strip common ABI prefixes and surrounding whitespace
+        cleaned = name.replace('armeabi-v7a ', '').replace('armeabi-v7a\u00a0', '').strip()
+        cleaned_module_names.append(cleaned)
+    degrade_module_names = set(cleaned_module_names)
     degrade_modules_list_html = "<div class='degrade-modules'>Degrade modules:<br>" + '<br>'.join(sorted(degrade_module_names)) + "</div>"
     left_summary_combined = (
         "<div class='summary-wrapper'>"
