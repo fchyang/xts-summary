@@ -5,6 +5,7 @@ import tempfile
 import requests
 import io
 import logging
+import re
 from typing import List, Optional, Union
 
 # -------------------------------------------------
@@ -153,6 +154,7 @@ def _make_summary_table(source: Optional[Union[Path, str]]) -> List[str]:
     return [table_html]
 
 def _extract_version(fingerprint: str) -> str | None:
+    # (unchanged)
     """Extract a version number like 672 from a fingerprint string.
     The version is defined as the token that appears after the fourth '/' and
     before any ':' that may follow. If the pattern cannot be found, return None.
@@ -171,7 +173,39 @@ def _extract_version(fingerprint: str) -> str | None:
     m = re.search(r"(\d+)", candidate)
     return m.group(1) if m else None
 
+def _extract_suite_from_summary(source: str) -> str | None:
+    """Extract the suite name (e.g., "CTS") from a summary table in the HTML source.
+    The summary table has class "summary" and contains a row like "Suite / Plan".
+    This function returns the text left of the first '/' in that cell.
+    Returns None if not found.
+    """
+    if not source:
+        return None
+    try:
+        if source.startswith(("http://", "https://")):
+            resp = requests.get(source, timeout=10)
+            resp.raise_for_status()
+            html = resp.text
+        else:
+            html = Path(source).read_text(encoding="utf-8")
+    except Exception:
+        return None
+    # Load summary tables and look for a row containing "Suite / Plan"
+    try:
+        dfs = pd.read_html(io.StringIO(html), attrs={"class": "summary"})
+    except Exception:
+        return None
+    for df in dfs:
+        # Look for a row where the first column is exactly "Suite / Plan"
+        for _, row in df.iterrows():
+            if len(row) >= 2 and str(row.iloc[0]).strip() == "Suite / Plan":
+                suite_cell = str(row.iloc[1])
+                # The suite name is the part before the first '/' (e.g., "CTS / cts" -> "CTS")
+                return suite_cell.split('/')[0].strip()
+    return None
+
 def generate_report(
+
 
     left_dfs: List[pd.DataFrame],
     right_dfs: List[pd.DataFrame],
@@ -226,10 +260,15 @@ def generate_report(
     # Build CTS Diff title with version info if available
     left_version = _extract_version(left_title)
     right_version = _extract_version(right_title)
+    # Extract suite name from the source html (left/right) if available
+    left_suite = _extract_suite_from_summary(left_summary_source) if left_summary_source else None
+    right_suite = _extract_suite_from_summary(right_summary_source) if right_summary_source else None
+    suite_name = left_suite or right_suite or "CTS"
+    # Build the diff title using versions (if any) and suite name
     if left_version and right_version:
-        diff_title = f"v{left_version} Vs v{right_version} CTS Diff"
+        diff_title = f"v{left_version} Vs v{right_version} {suite_name} Diff"
     else:
-        diff_title = "CTS Diff"
+        diff_title = f"{suite_name} Diff"
     left_summary_combined = (
 
         "<div class='summary-wrapper'>"

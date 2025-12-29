@@ -74,9 +74,13 @@ def main(argv: List[str] | None = None) -> None:
     left_title, left_tables = extract_testdetails(args.left)
     right_title, right_tables = extract_testdetails(args.right)
 
+    # If either side lacks 'testdetails' tables, we still generate a report –
+    # the diff will simply contain no testdetail tables.
     if not left_tables or not right_tables:
-        log.error("Could not find a 'testdetails' table in one of the inputs.")
-        raise SystemExit(1)
+        log.warning("Could not find a 'testdetails' table in one of the inputs; proceeding without testdetail diff.")
+        # Continue with empty lists so generate_report can render summaries only.
+        left_tables = left_tables or []
+        right_tables = right_tables or []
 
     # Convert each extracted table to a DataFrame and compute diffs
     left_dfs, right_dfs, diffs = [], [], []
