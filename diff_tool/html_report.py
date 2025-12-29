@@ -15,12 +15,14 @@ HTML_HEADER = """<!DOCTYPE html>
 <html><head><meta charset='utf-8'><title>Table Diff</title>
 <style>
 body {font-family:Arial, sans-serif; margin:0; padding:0;}
-.container {display:flex; width:100%;}
- .col {flex:1; padding:10px; box-sizing:border-box; overflow:visible;}
+.container {display:flex; width:100%; overflow-x:auto;}
+ .col {flex:1 1 0; padding:10px; box-sizing:border-box; overflow-y:auto; overflow-x:hidden; min-width:0;}
 .col + .col {border-left:1px dashed #aaa;}
 /* vertical divider between columns */
 
-table {border-collapse:collapse; margin:10px 0; width:auto;}
+table {border-collapse:collapse; margin:10px 0; width:100%;}
+/* make cells wrap content */
+.testdetails td {white-space:normal; word-break:break-all;}
 
 th, td {border:1px solid #aaa; padding:4px 8px;}
 h2 {margin-top:0.5em;}
@@ -70,8 +72,8 @@ def _make_table(df: pd.DataFrame) -> str:
     for row in rows[1:]:
         # Ensure three columns
         test, result, details = (list(row) + ["", "", ""])[:3]
-        # Skip possible extra header rows
-        if test == "Test" and result == "Result" and details == "Details":
+        # Skip possible extra header rows and empty rows
+        if (test == "Test" and result == "Result" and details == "Details") or not test.strip():
             continue
         col_class = "testname" if "." in test else "module"
         test_td = f'<td class="{col_class}">{test}</td>'
@@ -100,8 +102,8 @@ def _make_table(df: pd.DataFrame) -> str:
     for row in rows[1:]:
         # Ensure three columns
         test, result, details = (list(row) + ["", "", ""])[:3]
-        # Skip possible extra header rows
-        if test == "Test" and result == "Result" and details == "Details":
+        # Skip possible extra header rows and empty rows
+        if (test == "Test" and result == "Result" and details == "Details") or not test.strip():
             continue
         col_class = "testname" if "." in test else "module"
         test_td = f'<td class="{col_class}">{test}</td>'
@@ -226,7 +228,24 @@ def generate_report(
     """
     # Build summary tables if sources provided
     left_summary = _make_summary_table(left_summary_source) if left_summary_source else []
+    # Fallback: if parsing failed, extract raw summary table via regex
+    if not left_summary and left_summary_source:
+        try:
+            raw_html = Path(left_summary_source).read_text(encoding='utf-8')
+            m = re.search(r"<table[^>]*class=['\"]summary['\"][^>]*>.*?</table>", raw_html, re.DOTALL)
+            if m:
+                left_summary = [m.group(0)]
+        except Exception:
+            pass
     right_summary = _make_summary_table(right_summary_source) if right_summary_source else []
+    if not right_summary and right_summary_source:
+        try:
+            raw_html = Path(right_summary_source).read_text(encoding='utf-8')
+            m = re.search(r"<table[^>]*class=['\"]summary['\"][^>]*>.*?</table>", raw_html, re.DOTALL)
+            if m:
+                right_summary = [m.group(0)]
+        except Exception:
+            pass
     # Compute overlap statistics of test names between left and right
     # Extract only actual test names (contain a dot) from the first column of each testdetails DataFrame
     left_tests = {str(val) for df in left_dfs for val in df.iloc[:, 0].astype(str).tolist() if '.' in str(val)}
