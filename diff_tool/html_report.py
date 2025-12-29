@@ -152,7 +152,27 @@ def _make_summary_table(source: Optional[Union[Path, str]]) -> List[str]:
     table_html = "<table class='summary'>" + ''.join(rows) + "</table>"
     return [table_html]
 
+def _extract_version(fingerprint: str) -> str | None:
+    """Extract a version number like 672 from a fingerprint string.
+    The version is defined as the token that appears after the fourth '/' and
+    before any ':' that may follow. If the pattern cannot be found, return None.
+    """
+    if not fingerprint:
+        return None
+    # Find the part after the fourth '/'
+    parts = fingerprint.split('/')
+    if len(parts) < 5:
+        return None
+    candidate = parts[4]
+    # Remove any trailing ':' and following text
+    candidate = candidate.split(':')[0]
+    # Keep only digits (the version number)
+    import re
+    m = re.search(r"(\d+)", candidate)
+    return m.group(1) if m else None
+
 def generate_report(
+
     left_dfs: List[pd.DataFrame],
     right_dfs: List[pd.DataFrame],
     diff_dfs: List[pd.DataFrame],
@@ -203,11 +223,19 @@ def generate_report(
         cleaned_module_names.append(cleaned)
     degrade_module_names = set(cleaned_module_names)
     degrade_modules_list_html = "<div class='degrade-modules'>Degrade modules:<br>" + '<br>'.join(sorted(degrade_module_names)) + "</div>"
+    # Build CTS Diff title with version info if available
+    left_version = _extract_version(left_title)
+    right_version = _extract_version(right_title)
+    if left_version and right_version:
+        diff_title = f"v{left_version} Vs v{right_version} CTS Diff"
+    else:
+        diff_title = "CTS Diff"
     left_summary_combined = (
+
         "<div class='summary-wrapper'>"
         "<div class='left-summary'>" + ''.join(left_summary) + "</div>"
         "<div class='right-summary'>"
-        "<div class='cts-diff'>CTS Diff</div>"
+        f"<div class='cts-diff'>{diff_title}</div>"
         + chart_html + chart_script + degrade_modules_list_html +
         "</div>"
         "</div>"
