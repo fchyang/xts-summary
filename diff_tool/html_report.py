@@ -16,9 +16,9 @@ HTML_HEADER = """<!DOCTYPE html>
 <style>
 body {font-family:Arial, sans-serif; margin:0; padding:0;}
 .container {display:flex; width:100%;}
-.col {flex:1; padding:10px; box-sizing:border-box; overflow:auto;}
-/* vertical divider between columns */
+ .col {flex:1; padding:10px; box-sizing:border-box; overflow:visible;}
 .col + .col {border-left:1px dashed #aaa;}
+/* vertical divider between columns */
 
 table {border-collapse:collapse; margin:10px 0; width:auto;}
 
@@ -31,14 +31,16 @@ h2 {margin-top:0.5em;}
 .testdetails td.failuredetails {background:#d4e9a9;}
 .testdetails th          {background:#a5c639 !important;}
 .testdetails th.module   {background:none !important;}
-.summary-header {background:#a5c639 !important; border: solid 1px #aaa; text-align:left;}
+    .summary-header {background:#a5c639 !important; border: solid 1px #aaa; text-align:left;}
     .summary-data {background:#d4e9a9; word-break:break-all; white-space:normal;}
     .summary td {max-width:490px; word-break:break-all; white-space:normal; overflow-wrap:anywhere;}
 
-    
+    /* Horizontal divider with centered label */
+    .horizontal-divider {border-top:1px dashed #aaa; margin:-0.5em 0 12px 0; position:relative; text-align:center; width:calc(200% + 20px); left:-50%; margin-left:-10px; margin-right:-10px;}
+    .horizontal-divider span {background:#fff; padding:0 8px; position:relative; top:-0.6em; font-weight:bold; font-size:1.3em;}
 
     .col + .col .summary {margin-left:0;}
-    .summary-wrapper {display:flex; align-items:flex-start; gap:10px;}
+    .summary-wrapper {display:flex; align-items:flex-start; gap:10px; margin-top:-0.5em;}
     .col + .col .summary-wrapper {justify-content:flex-start;}
     .col + .col .left-summary {margin-left:0;}
     .col + .col .right-summary {visibility:hidden; width:0;}
@@ -265,12 +267,16 @@ def generate_report(
     right_suite = _extract_suite_from_summary(right_summary_source) if right_summary_source else None
     suite_name = left_suite or right_suite or "CTS"
     # Build the diff title using versions (if any) and suite name
+    # Horizontal divider label (suite name) will be placed above both columns
+    horizontal_divider_html = f"<div class='horizontal-divider'><span>{suite_name}</span></div>"
     if left_version and right_version:
         diff_title = f"v{left_version} Vs v{right_version} {suite_name} Diff"
     else:
         diff_title = f"{suite_name} Diff"
+        # Divider spanning both columns (placed above each column's summary)
+    divider_html = f"<br><div class='horizontal-divider'><span>{suite_name}</span></div>"
     left_summary_combined = (
-
+        divider_html +
         "<div class='summary-wrapper'>"
         "<div class='left-summary'>" + ''.join(left_summary) + "</div>"
         "<div class='right-summary'>"
@@ -281,7 +287,10 @@ def generate_report(
     )
     # Right side keeps its summary tables (module summary removed)
     right_placeholder = "<div class='right-summary' style='visibility:hidden;'></div>"
-    right_summary_combined = f"<div class='summary-wrapper'><div class='left-summary'>{''.join(right_summary)}</div>{right_placeholder}</div>"
+    right_summary_combined = (
+        divider_html +
+        f"<div class='summary-wrapper'><div class='left-summary'>{''.join(right_summary)}</div>{right_placeholder}</div>"
+    )
 
     parts = [
         HTML_HEADER,

@@ -1,0 +1,49 @@
+<!DOCTYPE html>
+<html><head><meta charset='utf-8'><title>Table Diff</title>
+<style>
+body {font-family:Arial, sans-serif; margin:0; padding:0;}
+.container {display:flex; width:100%;}
+.col {flex:1; padding:10px; box-sizing:border-box; overflow:auto;}
+/* vertical divider between columns */
+
+table {border-collapse:collapse; margin:10px 0; width:auto;}
+
+th, td {border:1px solid #aaa; padding:4px 8px;}
+h2 {margin-top:0.5em;}
+.testdetails td.module   {background:none;}
+.testdetails th.module   {background:none;}
+.testdetails td.testname {background:#d4e9a9;}
+.testdetails td.failed   {background:#fa5858; text-align:center; font-weight:bold;}
+.testdetails td.failuredetails {background:#d4e9a9;}
+.testdetails th          {background:#a5c639 !important;}
+.testdetails th.module   {background:none !important;}
+    .summary-header {background:#a5c639 !important; border: solid 1px #aaa; text-align:left;}
+    .summary-data {background:#d4e9a9; word-break:break-all; white-space:normal;}
+    .summary td {max-width:490px; word-break:break-all; white-space:normal; overflow-wrap:anywhere;}
+
+    /* Horizontal divider with centered label */
+    .horizontal-divider {border-top:1px dashed #aaa; margin:12px 0; position:relative; text-align:center;}
+    .horizontal-divider span {background:#fff; padding:0 8px; position:relative; top:-0.6em; font-weight:bold;}
+
+    .col + .col .summary {margin-left:0;}
+    .summary-wrapper {display:flex; align-items:flex-start; gap:10px;}
+    .col + .col .summary-wrapper {justify-content:flex-start;}
+    .col + .col .left-summary {margin-left:0;}
+    .col + .col .right-summary {visibility:hidden; width:0;}
+    .summary-wrapper .right-summary {display:flex; flex-direction:column; gap:5px;}
+    .cts-diff {background:orange; padding:4px; font-weight:bold; text-align:center; margin-top:12px;}
+.degrade-modules {color:#b22222;}
+.chart {margin-top:-0.5em;}
+</style></head><body>
+<div class='container'>
+<div class='col'>
+<h2>ABC123</h2>
+<div class='horizontal-divider'><span>CTS</span></div><div class='summary-wrapper'><div class='left-summary'></div><div class='right-summary'><div class='cts-diff'>CTS Diff</div><div class='chart'><canvas id='moduleChart' width='230' height='230' style='width:230px;height:230px;'></canvas></div><script src='https://cdn.jsdelivr.net/npm/chart.js'></script><script>var ctx=document.getElementById('moduleChart').getContext('2d');new Chart(ctx,{type:'pie',data:{labels:['Same modules (1)','Degrade modules (0)'],datasets:[{data:[1,0],backgroundColor:['#4caf50','#f44336']}]} ,options:{responsive:false,maintainAspectRatio:false}});</script><div class='degrade-modules'>Degrade modules:<br></div></div></div>
+<table class='testdetails'><tr><th colspan="3" class="module" style="text-align:left;">A</th></tr><tr><th>Test</th><th>Result</th><th>Details</th></tr><tr><td class="module">B</td><td>2</td><td></td></tr></table>
+</div>
+<div class='col'>
+<h2>XYZ789</h2>
+<div class='summary-wrapper'><div class='left-summary'></div><div class='right-summary' style='visibility:hidden;'></div></div>
+<table class='testdetails'><tr><th colspan="3" class="module" style="text-align:left;">A</th></tr><tr><th>Test</th><th>Result</th><th>Details</th></tr><tr><td class="module">B</td><td>3</td><td></td></tr></table>
+</div>
+</div></body></html>
