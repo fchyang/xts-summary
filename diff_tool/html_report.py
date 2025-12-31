@@ -15,8 +15,8 @@ HTML_HEADER = """<!DOCTYPE html>
 <html><head><meta charset='utf-8'><title>Table Diff</title>
 <style>
 body {font-family:Arial, sans-serif; margin:0; padding:0;}
-.container {display:flex; width:100%; overflow-x:auto;}
- .col {flex:1 1 0; padding:10px; box-sizing:border-box; overflow-y:auto; overflow-x:hidden; min-width:0;}
+.container {display:flex; flex-wrap:wrap; width:100%; overflow-x:auto;}
+ .col {flex:0 0 50%; max-width:50%; padding:10px; box-sizing:border-box; overflow-y:auto; overflow-x:hidden; min-width:0;}
 .col + .col {border-left:1px dashed #aaa;}
 /* vertical divider between columns */
 

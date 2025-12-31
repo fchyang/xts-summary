@@ -31,23 +31,26 @@ log = logging.getLogger(__name__)
 
 def build_parser() -> argparse.ArgumentParser:
     """Create argument parser.
-    Supports providing either HTML files directly or directories containing a
-    specific subdirectory (e.g., cts) where the file
+    Supports providing either HTML files directly or directories containing
+    specific subdirectories (e.g., cts, ctsongsi, gts, …) where the file
     ``test_result_failures_suite.html`` resides.
     """
-    """Create and return the argument parser used by the CLI."""
     parser = argparse.ArgumentParser(
-        description="Compare 'testdetails' tables from two HTML sources."
+        description="Compare 'testdetails' tables from two HTML sources across multiple subdirectories."
     )
-    parser.add_argument("left", help="Path or URL of the left HTML file or directory")
-    parser.add_argument("right", help="Path or URL of the right HTML file or directory")
-    parser.add_argument("-s", "--subdir", default="cts",
-                        help="Subdirectory name under each directory where 'test_result_failures_suite.html' is located (default: %(default)s)")
+    parser.add_argument("left", help="Path or URL of the left root directory or HTML file")
+    parser.add_argument("right", help="Path or URL of the right root directory or HTML file")
+    parser.add_argument(
+        "-s",
+        "--subdirs",
+        default="cts,ctsongsi,gts,vts,tv_ts,sts",
+        help="Comma‑separated list of subdirectory names to compare (default: %(default)s)",
+    )
     parser.add_argument(
         "-o",
         "--output",
         default="diff.html",
-        help="Output HTML report file (default: %(default)s)",
+        help="Final merged HTML report file (default: %(default)s)",
     )
     parser.add_argument(
         "-v",
@@ -71,6 +74,10 @@ def main(argv: List[str] | None = None) -> None:
     """
     parser = build_parser()
     args = parser.parse_args(argv)
+    logging.basicConfig(
+        level=logging.DEBUG if args.verbose else logging.INFO,
+        format="%(levelname)s: %(message)s",
+    )
     # Resolve directories to specific HTML file if needed
     def _resolve(arg: str) -> str:
         if arg.startswith(("http://", "https://")):
@@ -141,56 +148,103 @@ def main(argv: List[str] | None = None) -> None:
                     if file.is_file():
                         return str(file)
         return arg
-    left_path = _resolve(args.left)
-    right_path = _resolve(args.right)
-    log.debug(f"Resolved left path: {left_path}")
-    log.debug(f"Resolved right path: {right_path}")
+    # ----- Multi‑subdir processing -----
+    import re
+    from pathlib import Path
+    from .html_report import HTML_HEADER, HTML_FOOTER
 
-    logging.basicConfig(
-        level=logging.DEBUG if args.verbose else logging.INFO,
-        format="%(levelname)s: %(message)s",
-    )
+    subdirs = [s.strip() for s in args.subdirs.split(',') if s.strip()]
+    temp_dir = Path.cwd() / "tmp_diff_reports"
+    temp_dir.mkdir(parents=True, exist_ok=True)
+    generated_files = []
+    for sub in subdirs:
+        # Resolve left/right paths for this subdirectory
+        left_candidate = (Path(args.left) / sub if not args.left.startswith(("http://", "https://")) else f"{args.left.rstrip('/')}/{sub}/")
+        right_candidate = (Path(args.right) / sub if not args.right.startswith(("http://", "https://")) else f"{args.right.rstrip('/')}/{sub}/")
+        left_path = _resolve(str(left_candidate))
+        right_path = _resolve(str(right_candidate))
+        log.debug(f"Processing subdir '{sub}': left={left_path}, right={right_path}")
 
-    # Directly extract tables and titles from the provided sources.
-    # ``extract_testdetails`` handles loading from both local files and URLs.
-    left_title, left_tables = extract_testdetails(left_path)
-    right_title, right_tables = extract_testdetails(right_path)
+        # Extract tables and titles
+        left_title, left_tables = extract_testdetails(left_path)
+        right_title, right_tables = extract_testdetails(right_path)
+        if not left_tables or not right_tables:
+            log.warning(f"No testdetails found for subdir '{sub}'. Skipping.")
+            continue
+        left_dfs, right_dfs, diffs = [], [], []
+        for lt, rt in zip(left_tables, right_tables):
+            left_df, right_df, diff_df = compare_tables(lt, rt)
+            left_dfs.append(left_df)
+            right_dfs.append(right_df)
+            diffs.append(diff_df)
+        # Preserve extra tables
+        if len(left_tables) > len(right_tables):
+            left_dfs.extend(_table_to_df(t) for t in left_tables[len(right_tables):])
+        elif len(right_tables) > len(left_tables):
+            right_dfs.extend(_table_to_df(t) for t in right_tables[len(left_tables):])
+        out_path = temp_dir / f"{sub}-diff.html"
+        generate_report(
+            left_dfs,
+            right_dfs,
+            diffs,
+            left_title,
+            right_title,
+            out_path,
+            left_path,
+            right_path,
+        )
+        generated_files.append(out_path)
 
-    # If either side lacks 'testdetails' tables, we still generate a report –
-    # the diff will simply contain no testdetail tables.
-    if not left_tables or not right_tables:
-        log.warning("Could not find a 'testdetails' table in one of the inputs; proceeding without testdetail diff.")
-        # Continue with empty lists so generate_report can render summaries only.
-        left_tables = left_tables or []
-        right_tables = right_tables or []
+    # ----- Merge generated reports -----
+    if not generated_files:
+        log.error("No diff reports were generated.")
+        return
+    # Determine base report (cts) and other reports
+    base_file = None
+    other_files = []
+    for f in generated_files:
+        if f.name.startswith('cts-'):
+            base_file = f
+        else:
+            other_files.append(f)
+    if base_file is None:
+        # Fallback: use first generated file as base
+        base_file = generated_files[0]
+        other_files = generated_files[1:]
+    # Merge reports by stacking each report's own <div class='container'> block vertically.
+    # Remove the common HTML_HEADER and HTML_FOOTER from each generated report, keeping the inner container.
+    def extract_container(html: str) -> str:
+        """Return the <div class='container'>...</div> block of a report."""
+        # Strip the shared header/footer; the remainder starts with the container div.
+        return html.replace(HTML_HEADER, "").replace(HTML_FOOTER, "").strip()
 
-    # Convert each extracted table to a DataFrame and compute diffs
-    left_dfs, right_dfs, diffs = [], [], []
-    for lt, rt in zip(left_tables, right_tables):
-        left_df, right_df, diff_df = compare_tables(lt, rt)
-        left_dfs.append(left_df)
-        right_dfs.append(right_df)
-        diffs.append(diff_df)
+    # Header without the opening <div class='container'> (we will keep each report's own container)
+    header_no_container = HTML_HEADER.split("<div class='container'>")[0]
+    # Footer that only closes body and html (no extra </div>)
+    footer_snippet = "</body></html>"
 
-    # Preserve any extra tables that appear only on one side
-    if len(left_tables) > len(right_tables):
-        left_dfs.extend(_table_to_df(t) for t in left_tables[len(right_tables) :])
-    elif len(right_tables) > len(left_tables):
-        right_dfs.extend(_table_to_df(t) for t in right_tables[len(left_tables) :])
+    # Concatenate full container blocks from each generated report
+    combined_body = ""
+    for file in generated_files:
+        # Remove the shared HTML_HEADER and HTML_FOOTER, but keep the <div class='container'> wrapper
+        content = file.read_text(encoding="utf-8")
+        # Strip the outer header up to the container start (inclusive), then keep from there
+        # Find the first occurrence of "<div class='container'>"
+        start = content.find("<div class='container'>")
+        end = content.rfind(HTML_FOOTER)
+        if start != -1 and end != -1:
+            combined_body += content[start:end]
+        else:
+            # Fallback: use whole content (unlikely)
+            combined_body += content
+    final_html = header_no_container + combined_body + footer_snippet
 
-    output_path = Path(args.output)
-    # Generate report using the resolved file paths for summary extraction
-    result_path = generate_report(
-        left_dfs,
-        right_dfs,
-        diffs,
-        left_title,
-        right_title,
-        output_path,
-        left_path,
-        right_path,
-    )
-    log.info("Diff report written to %s", result_path)
+    final_path = Path(args.output)
+    final_path.parent.mkdir(parents=True, exist_ok=True)
+    final_path.write_text(final_html, encoding="utf-8")
+    log.info("Merged diff report written to %s", final_path)
+    return
+
 
 
 if __name__ == "__main__":
