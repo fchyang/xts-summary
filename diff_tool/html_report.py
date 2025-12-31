@@ -260,11 +260,26 @@ def generate_report(
     degrade_modules = len(left_modules ^ right_modules)
     module_summary = f"<table class='summary'><tr><th class='summary-header'>Same modules</th><td class='summary-data'>{same_modules}</td></tr><tr><th class='summary-header'>Degrade modules</th><td class='summary-data' style='background:#fa5858;'>{degrade_modules}</td></tr></table>"
     # Prepare a simple pie chart for module comparison
-    chart_html = "<div class='chart'><canvas id='moduleChart' width='230' height='230' style='width:230px;height:230px;'></canvas></div>"
+    # Version info needed for a unique chart id (to avoid id clash when multiple reports are merged)
+    left_version = _extract_version(left_title)
+    right_version = _extract_version(right_title)
+    # Determine suite name for chart ID uniqueness
+    left_suite = _extract_suite_from_summary(left_summary_source) if left_summary_source else None
+    right_suite = _extract_suite_from_summary(right_summary_source) if right_summary_source else None
+    suite_name = left_suite or right_suite or "CTS"
+    safe_suite = suite_name.replace(' ', '_')
+    # Build a unique chart ID using suite and version numbers (if present)
+    if left_version and right_version:
+        chart_id = f"moduleChart_{safe_suite}_{left_version}_{right_version}"
+    else:
+        # Fallback to a generic ID that still includes suite to avoid clashes
+        chart_id = f"moduleChart_{safe_suite}"
+
+    chart_html = f"<div class='chart'><canvas id='{chart_id}' width='230' height='230' style='width:230px;height:230px;'></canvas></div>"
     chart_script = (
         "<script src='https://cdn.jsdelivr.net/npm/chart.js'></script>"
         "<script>"
-        "var ctx=document.getElementById('moduleChart').getContext('2d');"
+        f"var ctx=document.getElementById('{chart_id}').getContext('2d');"
         f"new Chart(ctx,{{type:'pie',data:{{labels:['Same modules ({same_modules})','Degrade modules ({degrade_modules})'],datasets:[{{data:[{same_modules},{degrade_modules}],backgroundColor:['#4caf50','#f44336']}}]}} ,options:{{responsive:false,maintainAspectRatio:false}}}});"
         "</script>"
     )
