@@ -8,6 +8,9 @@ import logging
 import re
 from typing import List, Optional, Union
 
+# Global counter for unique chart IDs across merged reports
+_chart_counter = 0
+
 # -------------------------------------------------
 # 常量区（HTML 结构、CSS、模板）
 # -------------------------------------------------
@@ -178,10 +181,9 @@ def _extract_version(fingerprint: str) -> str | None:
     return m.group(1) if m else None
 
 def _extract_suite_from_summary(source: str) -> str | None:
-    """Extract the suite name (e.g., "CTS") from a summary table in the HTML source.
-    The summary table has class "summary" and contains a row like "Suite / Plan".
-    This function returns the text left of the first '/' in that cell.
-    Returns None if not found.
+    """Extract the suite identifier from a summary table.
+    Returns the whole "Suite / Plan" cell (e.g., "CTS / cts-on-gsi")
+    so that different suites (CTS, CTS on GSI, etc.) can be distinguished.
     """
     if not source:
         return None
@@ -203,9 +205,9 @@ def _extract_suite_from_summary(source: str) -> str | None:
         # Look for a row where the first column is exactly "Suite / Plan"
         for _, row in df.iterrows():
             if len(row) >= 2 and str(row.iloc[0]).strip() == "Suite / Plan":
-                suite_cell = str(row.iloc[1])
-                # The suite name is the part before the first '/' (e.g., "CTS / cts" -> "CTS")
-                return suite_cell.split('/')[0].strip()
+                suite_cell = str(row.iloc[1]).strip()
+                # Return the full cell (e.g., "CTS / cts-on-gsi")
+                return suite_cell
     return None
 
 def generate_report(
@@ -267,13 +269,16 @@ def generate_report(
     left_suite = _extract_suite_from_summary(left_summary_source) if left_summary_source else None
     right_suite = _extract_suite_from_summary(right_summary_source) if right_summary_source else None
     suite_name = left_suite or right_suite or "CTS"
-    safe_suite = suite_name.replace(' ', '_')
-    # Build a unique chart ID using suite and version numbers (if present)
+    # Make a safe ID component (remove spaces and slashes)
+    safe_suite = suite_name.replace(' ', '_').replace('/', '_')
+    # Use a global counter to guarantee unique IDs across all generated reports
+    global _chart_counter
+    _chart_counter += 1
+    # Build chart ID using suite name and counter (and versions if available)
     if left_version and right_version:
-        chart_id = f"moduleChart_{safe_suite}_{left_version}_{right_version}"
+        chart_id = f"moduleChart_{safe_suite}_{left_version}_{right_version}_{_chart_counter}"
     else:
-        # Fallback to a generic ID that still includes suite to avoid clashes
-        chart_id = f"moduleChart_{safe_suite}"
+        chart_id = f"moduleChart_{safe_suite}_{_chart_counter}"
 
     chart_html = f"<div class='chart'><canvas id='{chart_id}' width='230' height='230' style='width:230px;height:230px;'></canvas></div>"
     chart_script = (

@@ -168,9 +168,12 @@ def main(argv: List[str] | None = None) -> None:
         # Extract tables and titles
         left_title, left_tables = extract_testdetails(left_path)
         right_title, right_tables = extract_testdetails(right_path)
-        if not left_tables or not right_tables:
-            log.warning(f"No testdetails found for subdir '{sub}'. Skipping.")
-            continue
+        if not left_tables and not right_tables:
+            # No testdetails in either side, but we still want to generate a diff report with summary and version info.
+            log.info(f"No testdetails for subdir '{sub}', generating summary-only diff.")
+        elif not left_tables or not right_tables:
+            # One side missing testdetails – still generate report with whatever tables are present.
+            log.info(f"Partial testdetails for subdir '{sub}'.")
         left_dfs, right_dfs, diffs = [], [], []
         for lt, rt in zip(left_tables, right_tables):
             left_df, right_df, diff_df = compare_tables(lt, rt)
