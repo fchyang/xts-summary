@@ -66,6 +66,21 @@ def _make_table(df: pd.DataFrame) -> str:
     Missing columns are padded with empty strings to avoid unpack errors.
     """
     rows = df.values.tolist()
+    # Handle "Incomplete Modules" table (header plus list of modules)
+    if rows and (
+        str(rows[0][0]).replace('\xa0',' ').strip().lower() == "incomplete modules"
+        or (len(df.columns) == 1 and str(df.columns[0]).replace('\xa0',' ').strip().lower() == "incomplete modules")
+    ):
+        # Determine header text
+        header = rows[0][0] if str(rows[0][0]).replace('\xa0',' ').strip().lower() == "incomplete modules" else df.columns[0]
+        parts = [f"<tr><th colspan='3' class='module' style='text-align:left;background:#a5c639 !important;color:black;font-weight:bold;'>{header}</th></tr>"]
+        # Data rows start after header if header is in first row, otherwise all rows are data
+        data_start = 1 if str(rows[0][0]).replace('\xa0',' ').strip().lower() == "incomplete modules" else 0
+        for row in rows[data_start:]:
+            module_name = str(row[0]) if row else ""
+            if module_name:
+                parts.append(f"<tr><td colspan='3' class='module' style='background:#d4e9a9;color:black;'>{module_name}</td></tr>")
+        return f"<table class='incompletemodules' style='width:auto;'>{''.join(parts)}</table>"
     if not rows:
         return "<table class='testdetails'></table>"
 
@@ -96,6 +111,21 @@ def _make_table(df: pd.DataFrame) -> str:
     Missing columns are padded with empty strings to avoid unpack errors.
     """
     rows = df.values.tolist()
+    # Handle "Incomplete Modules" table (header plus list of modules)
+    if rows and (
+        str(rows[0][0]).replace('\xa0',' ').strip().lower() == "incomplete modules"
+        or (len(df.columns) == 1 and str(df.columns[0]).replace('\xa0',' ').strip().lower() == "incomplete modules")
+    ):
+        # Determine header text
+        header = rows[0][0] if str(rows[0][0]).replace('\xa0',' ').strip().lower() == "incomplete modules" else df.columns[0]
+        parts = [f"<tr><th colspan='3' class='module' style='text-align:left;background:#a5c639 !important;color:black;font-weight:bold;'>{header}</th></tr>"]
+        # Data rows start after header if header is in first row, otherwise all rows are data
+        data_start = 1 if str(rows[0][0]).replace('\xa0',' ').strip().lower() == "incomplete modules" else 0
+        for row in rows[data_start:]:
+            module_name = str(row[0]) if row else ""
+            if module_name:
+                parts.append(f"<tr><td colspan='3' class='module' style='background:#d4e9a9;color:black;'>{module_name}</td></tr>")
+        return f"<table class='incompletemodules' style='width:auto;'>{''.join(parts)}</table>"
     if not rows:
         return "<table class='testdetails'></table>"
 

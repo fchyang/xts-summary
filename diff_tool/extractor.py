@@ -26,5 +26,8 @@ def extract_testdetails(source: str) -> Tuple[str, List[bs4.Tag]]:
     html = _load_html(source)
     soup = bs4.BeautifulSoup(html, "lxml")
     fingerprint = _parse_fingerprint(soup)
-    tables = [tbl for tbl in soup.find_all("table") if "testdetails" in (tbl.get("class") or [])]
+    # Collect both 'testdetails' and optional 'incompletemodules' tables, preserving order (testdetails first).
+    testdetail_tables = [tbl for tbl in soup.find_all("table") if "testdetails" in (tbl.get("class") or [])]
+    incompletemodule_tables = [tbl for tbl in soup.find_all("table") if "incompletemodules" in (tbl.get("class") or [])]
+    tables = testdetail_tables + incompletemodule_tables
     return fingerprint, tables
