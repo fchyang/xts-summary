@@ -17,6 +17,14 @@ _chart_counter = 0
 HTML_HEADER = """<!DOCTYPE html>
 <html><head><meta charset='utf-8'><title>Table Diff</title>
 <style>
+/*added for single column layout*/
+.single-col {flex:0 0 70%; max-width:70%; padding:10px; box-sizing:border-box; overflow-y:auto; overflow-x:hidden; min-width:0; margin:0 auto;}
+.single-col h2 {margin-left:auto; margin-right:auto; text-align:center;}
+.single-col .summary, .single-col .testdetails, .single-col .incompletemodules {margin-left:auto; margin-right:auto; text-align:left;}
+
+.single-col .summary th, .single-col .summary td {text-align:left;}
+.failuredetails {white-space:normal; word-break:break-all;}
+
 body {font-family:Arial, sans-serif; margin:0; padding:0;}
 .container {display:flex; flex-wrap:wrap; width:100%; overflow-x:auto;}
  .col {flex:0 0 50%; max-width:50%; padding:10px; box-sizing:border-box; overflow-y:auto; overflow-x:hidden; min-width:0;}
@@ -51,7 +59,7 @@ h2 {margin-top:0.5em;}
     .col + .col .right-summary {visibility:hidden; width:0;}
     .summary-wrapper .right-summary {display:flex; flex-direction:column; gap:5px;}
     .cts-diff {background:orange; padding:4px; font-weight:bold; text-align:center; margin-top:12px;}
-.degrade-modules {color:#b22222;background:none;}
+.degrade-modules {color:#b22222;background:none;font-size:0.9em;}
 .chart {margin-top:-0.5em;}
 .suspicious-label {color:black;font-weight:bold;background:none;}
 </style></head><body>
@@ -242,23 +250,26 @@ def _extract_suite_from_summary(source: str) -> str | None:
     return None
 
 def generate_report(
-
-
     left_dfs: List[pd.DataFrame],
-    right_dfs: List[pd.DataFrame],
-    diff_dfs: List[pd.DataFrame],
-    left_title: str = "",  # kept for compatibility; not displayed
-    right_title: str = "",  # kept for compatibility; not displayed
+    right_dfs: List[pd.DataFrame] = [],
+    diff_dfs: List[pd.DataFrame] = [],
+    left_title: str = "",
+    right_title: str = "",
     output_path: Path = Path("diff.html"),
     left_summary_source: Optional[Union[Path, str]] = None,
     right_summary_source: Optional[Union[Path, str]] = None,
 ) -> Path:
+
+
+    
     """Create a two‑column HTML view showing left & right tables.
 
     * ``left_dfs`` / ``right_dfs`` – DataFrames extracted from the two HTML files.
     * ``diff_dfs`` – kept for API compatibility, not used.
         * Titles are kept for compatibility but not displayed; summary tables include fingerprints.
     """
+    # Determine if single column mode (no right side)
+    single_mode = not right_dfs and not right_summary_source
     # Build summary tables if sources provided
     left_summary = _make_summary_table(left_summary_source) if left_summary_source else []
     # Fallback: if parsing failed, extract raw summary table via regex
@@ -362,20 +373,33 @@ def generate_report(
         f"<div class='summary-wrapper'><div class='left-summary'>{''.join(right_summary)}</div>{right_placeholder}</div>"
     )
 
-    parts = [
-        HTML_HEADER,
-        f"<div class='col'>",
-        f"<h2>{left_title}</h2>" if left_title else "",
-        left_summary_combined,
-        *[_make_table(df) for df in left_dfs],
-        "</div>",
-        f"<div class='col'>",
-        f"<h2>{right_title}</h2>" if right_title else "",
-        right_summary_combined,
-        *[_make_table(df) for df in right_dfs],
-        "</div>",
-        HTML_FOOTER,
-    ]
+    if single_mode:
+        # Single column layout: use .single-col class, omit right side elements
+        parts = [
+            HTML_HEADER,
+            f"<div class='single-col'>",
+            f"<h2>{left_title}</h2>" if left_title else "",
+            left_summary_combined,
+            *[_make_table(df) for df in left_dfs],
+            "</div>",
+            HTML_FOOTER,
+        ]
+    else:
+        parts = [
+            HTML_HEADER,
+            f"<div class='col'>",
+            f"<h2>{left_title}</h2>" if left_title else "",
+            left_summary_combined,
+            *[_make_table(df) for df in left_dfs],
+            "</div>",
+            f"<div class='col'>",
+            f"<h2>{right_title}</h2>" if right_title else "",
+            right_summary_combined,
+            *[_make_table(df) for df in right_dfs],
+            "</div>",
+            HTML_FOOTER,
+        ]
+
     # 写入文件一次性完成
     # Ensure parent directory exists
     output_path.parent.mkdir(parents=True, exist_ok=True)

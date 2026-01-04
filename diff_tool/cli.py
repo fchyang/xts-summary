@@ -39,7 +39,7 @@ def build_parser() -> argparse.ArgumentParser:
         description="Compare 'testdetails' tables from two HTML sources across multiple subdirectories."
     )
     parser.add_argument("left", help="Path or URL of the left root directory or HTML file")
-    parser.add_argument("right", help="Path or URL of the right root directory or HTML file")
+    parser.add_argument("right", nargs='?', default='', help="Path or URL of the right root directory or HTML file (optional). If omitted, single‑column mode is used.")
     parser.add_argument(
         "-s",
         "--subdirs",
@@ -153,6 +153,8 @@ def main(argv: List[str] | None = None) -> None:
     from pathlib import Path
     from .html_report import HTML_HEADER, HTML_FOOTER
 
+    # If only left path provided, we operate in single‑column mode (no comparison)
+    single_mode = not args.right
     subdirs = [s.strip() for s in args.subdirs.split(',') if s.strip()]
     temp_dir = Path.cwd() / "tmp_diff_reports"
     temp_dir.mkdir(parents=True, exist_ok=True)
@@ -160,14 +162,18 @@ def main(argv: List[str] | None = None) -> None:
     for sub in subdirs:
         # Resolve left/right paths for this subdirectory
         left_candidate = (Path(args.left) / sub if not args.left.startswith(("http://", "https://")) else f"{args.left.rstrip('/')}/{sub}/")
-        right_candidate = (Path(args.right) / sub if not args.right.startswith(("http://", "https://")) else f"{args.right.rstrip('/')}/{sub}/")
+        right_candidate = (Path(args.right) / sub if args.right and not args.right.startswith(("http://", "https://")) else (f"{args.right.rstrip('/')}/{sub}/" if args.right else ""))
         left_path = _resolve(str(left_candidate))
-        right_path = _resolve(str(right_candidate))
+        right_path = _resolve(str(right_candidate)) if args.right else ""
         log.debug(f"Processing subdir '{sub}': left={left_path}, right={right_path}")
 
         # Extract tables and titles
         left_title, left_tables = extract_testdetails(left_path)
-        right_title, right_tables = extract_testdetails(right_path)
+        # Right side optional – if no right_path, treat as empty
+        if right_path:
+            right_title, right_tables = extract_testdetails(right_path)
+        else:
+            right_title, right_tables = "", []
         if not left_tables and not right_tables:
             # No testdetails in either side, but we still want to generate a diff report with summary and version info.
             log.info(f"No testdetails for subdir '{sub}', generating summary-only diff.")
@@ -194,7 +200,7 @@ def main(argv: List[str] | None = None) -> None:
             right_title,
             out_path,
             left_path,
-            right_path,
+            right_path if right_path else None,
         )
         generated_files.append(out_path)
 
