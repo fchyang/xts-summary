@@ -51,8 +51,9 @@ h2 {margin-top:0.5em;}
     .col + .col .right-summary {visibility:hidden; width:0;}
     .summary-wrapper .right-summary {display:flex; flex-direction:column; gap:5px;}
     .cts-diff {background:orange; padding:4px; font-weight:bold; text-align:center; margin-top:12px;}
-.degrade-modules {color:#b22222;}
+.degrade-modules {color:#b22222;background:none;}
 .chart {margin-top:-0.5em;}
+.suspicious-label {color:black;font-weight:bold;background:none;}
 </style></head><body>
 <div class='container'>"""
 HTML_FOOTER = """</div></body></html>"""
@@ -260,7 +261,7 @@ def generate_report(
     right_modules = {str(df.iloc[0,0]) for df in right_dfs}
     same_modules = len(left_modules & right_modules)
     degrade_modules = len(left_modules ^ right_modules)
-    module_summary = f"<table class='summary'><tr><th class='summary-header'>Same modules</th><td class='summary-data'>{same_modules}</td></tr><tr><th class='summary-header'>Suspicious modules</th><td class='summary-data' style='background:#fa5858;'>{degrade_modules}</td></tr></table>"
+    module_summary = f"<table class='summary'><tr><th class='summary-header'>Same modules</th><td class='summary-data'>{same_modules}</td></tr><tr><th class='summary-header' style='color:black;font-weight:bold;background:#ff0000 !important;'>Suspicious modules</th><td class='summary-data' style='background:#fa5858;'>{degrade_modules}</td></tr></table>"
     # Prepare a simple pie chart for module comparison
     # Version info needed for a unique chart id (to avoid id clash when multiple reports are merged)
     left_version = _extract_version(left_title)
@@ -297,7 +298,7 @@ def generate_report(
         cleaned = name.replace('armeabi-v7a ', '').replace('armeabi-v7a\u00a0', '').strip()
         cleaned_module_names.append(cleaned)
     degrade_module_names = set(cleaned_module_names)
-    degrade_modules_list_html = "<div class='degrade-modules'>Suspicious modules:<br>" + '<br>'.join(sorted(degrade_module_names)) + "</div>"
+    degrade_modules_list_html = "<div class='degrade-modules'><span class='suspicious-label'>Suspicious modules:</span><br>" + '<br>'.join(sorted(degrade_module_names)) + "</div>"
     # Build CTS Diff title with version info if available
     left_version = _extract_version(left_title)
     right_version = _extract_version(right_title)
