@@ -260,7 +260,7 @@ def generate_report(
     right_modules = {str(df.iloc[0,0]) for df in right_dfs}
     same_modules = len(left_modules & right_modules)
     degrade_modules = len(left_modules ^ right_modules)
-    module_summary = f"<table class='summary'><tr><th class='summary-header'>Same modules</th><td class='summary-data'>{same_modules}</td></tr><tr><th class='summary-header'>Degrade modules</th><td class='summary-data' style='background:#fa5858;'>{degrade_modules}</td></tr></table>"
+    module_summary = f"<table class='summary'><tr><th class='summary-header'>Same modules</th><td class='summary-data'>{same_modules}</td></tr><tr><th class='summary-header'>Suspicious modules</th><td class='summary-data' style='background:#fa5858;'>{degrade_modules}</td></tr></table>"
     # Prepare a simple pie chart for module comparison
     # Version info needed for a unique chart id (to avoid id clash when multiple reports are merged)
     left_version = _extract_version(left_title)
@@ -285,7 +285,7 @@ def generate_report(
         "<script src='https://cdn.jsdelivr.net/npm/chart.js'></script>"
         "<script>"
         f"var ctx=document.getElementById('{chart_id}').getContext('2d');"
-        f"new Chart(ctx,{{type:'pie',data:{{labels:['Same modules ({same_modules})','Degrade modules ({degrade_modules})'],datasets:[{{data:[{same_modules},{degrade_modules}],backgroundColor:['#4caf50','#f44336']}}]}} ,options:{{responsive:false,maintainAspectRatio:false}}}});"
+        f"new Chart(ctx,{{type:'pie',data:{{labels:['Same modules ({same_modules})','Suspicious modules ({degrade_modules})'],datasets:[{{data:[{same_modules},{degrade_modules}],backgroundColor:['#4caf50','#f44336']}}]}} ,options:{{responsive:false,maintainAspectRatio:false}}}});"
         "</script>"
     )
     # Build left summary: include left summary, CTS Diff block, chart, and list of degraded module names
@@ -297,7 +297,7 @@ def generate_report(
         cleaned = name.replace('armeabi-v7a ', '').replace('armeabi-v7a\u00a0', '').strip()
         cleaned_module_names.append(cleaned)
     degrade_module_names = set(cleaned_module_names)
-    degrade_modules_list_html = "<div class='degrade-modules'>Degrade modules:<br>" + '<br>'.join(sorted(degrade_module_names)) + "</div>"
+    degrade_modules_list_html = "<div class='degrade-modules'>Suspicious modules:<br>" + '<br>'.join(sorted(degrade_module_names)) + "</div>"
     # Build CTS Diff title with version info if available
     left_version = _extract_version(left_title)
     right_version = _extract_version(right_title)
@@ -309,9 +309,9 @@ def generate_report(
     # Horizontal divider label (suite name) will be placed above both columns
     horizontal_divider_html = f"<div class='horizontal-divider'><span>{suite_name}</span></div>"
     if left_version and right_version:
-        diff_title = f"v{left_version} Vs v{right_version} {suite_name} Diff"
+        diff_title = f"v{left_version} Vs v{right_version} Diff"
     else:
-        diff_title = f"{suite_name} Diff"
+        diff_title = "Diff"
         # Divider spanning both columns (placed above each column's summary)
     divider_html = f"<br><div class='horizontal-divider'><span>{suite_name}</span></div>"
     left_summary_combined = (
