@@ -356,16 +356,30 @@ def generate_report(
         diff_title = "Diff"
         # Divider spanning both columns (placed above each column's summary)
     divider_html = f"<br><div class='horizontal-divider'><span>{suite_name}</span></div>"
-    left_summary_combined = (
-        divider_html +
-        "<div class='summary-wrapper'>"
-        "<div class='left-summary'>" + ''.join(left_summary) + "</div>"
-        "<div class='right-summary'>"
-        f"<div class='cts-diff'>{diff_title}</div>"
-        + chart_html + chart_script + degrade_modules_list_html +
-        "</div>"
-        "</div>"
-    )
+    # Build summary section differently for single column mode (only left path provided)
+    if single_mode:
+        # In single-mode we omit the orange CTS Diff block and show the chart with the module summary on its right.
+        left_summary_combined = (
+            divider_html +
+            "<div class='summary-wrapper'>"
+            "<div class='left-summary'>" + ''.join(left_summary) + "</div>"
+            "<div class='right-summary' style='display:flex; flex-direction:row; align-items:flex-start; gap:10px; visibility:visible; margin-top:1.5em;'>" +
+            "<div class='chart-container'>" + chart_html + chart_script + "</div>" +
+            degrade_modules_list_html +
+            "</div>"
+            "</div>"
+        )
+    else:
+        left_summary_combined = (
+            divider_html +
+            "<div class='summary-wrapper'>"
+            "<div class='left-summary'>" + ''.join(left_summary) + "</div>"
+            "<div class='right-summary'>"
+            f"<div class='cts-diff'>{diff_title}</div>"
+            + chart_html + chart_script + degrade_modules_list_html +
+            "</div>"
+            "</div>"
+        )
     # Right side keeps its summary tables (module summary removed)
     right_placeholder = "<div class='right-summary' style='visibility:hidden;'></div>"
     right_summary_combined = (
