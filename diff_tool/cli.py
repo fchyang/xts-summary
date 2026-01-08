@@ -24,12 +24,18 @@ from typing import List
 from .extractor import extract_testdetails
 from .comparer import compare_tables, _table_to_df
 from .html_report import generate_report
+import bs4
 
 log = logging.getLogger(__name__)
 
 
 
 def build_parser() -> argparse.ArgumentParser:
+    """Create argument parser.
+    Supports providing two HTML files/URLs (left & right) for comparison, or
+    a single directory (left) with ``--recursive`` to automatically locate all
+    ``test_result_failures_suite.html`` files under it.
+    """
     """Create argument parser.
     Supports providing either HTML files directly or directories containing
     specific subdirectories (e.g., cts, ctsongsi, gts, …) where the file
@@ -57,6 +63,12 @@ def build_parser() -> argparse.ArgumentParser:
         "--verbose",
         action="store_true",
         help="Enable verbose (debug) logging",
+    )
+    parser.add_argument(
+        "-r",
+        "--recursive",
+        action="store_true",
+        help="(可选)在单列模式下强制递归搜索 `test_result_failures_suite.html`。若省略，若左路径是目录且包含此类文件，仍会自动递归。",
     )
 
     return parser
@@ -159,6 +171,91 @@ def main(argv: List[str] | None = None) -> None:
     temp_dir = Path.cwd() / "tmp_diff_reports"
     temp_dir.mkdir(parents=True, exist_ok=True)
     generated_files = []
+    if (args.recursive or (single_mode and (Path(args.left).is_dir() or args.left.startswith(('http://', 'https://'))))):
+        # ---------- Recursive single‑directory mode (per *ts subdir) ----------
+        if args.left.startswith(('http://', 'https://')):
+            # Remote HTTP directory – iterate each configured subdir (cts, gts, …)
+            base_url = args.left.rstrip('/') + '/'
+            for sub in subdirs:
+                sub_url = f"{base_url}{sub}/"
+                # Crawl links recursively to collect all matching HTML files under this subdir
+                visited = set()
+                def _collect(url, depth=0):
+                    if depth > 5:
+                        return []
+                    results = []
+                    try:
+                        resp = requests.get(url, timeout=10)
+                        resp.raise_for_status()
+                        soup = bs4.BeautifulSoup(resp.text, "html.parser")
+                        for a in soup.find_all('a', href=True):
+                            href = a['href']
+                            full = href if href.startswith('http') else url.rstrip('/') + '/' + href.lstrip('/')
+                            if href.endswith('test_result_failures_suite.html'):
+                                results.append(full)
+                            elif href.endswith('/') and full not in visited:
+                                visited.add(full)
+                                results.extend(_collect(full, depth + 1))
+                    except Exception:
+                        pass
+                    return results
+                html_files = sorted(set(_collect(sub_url)))
+                if not html_files:
+                    log.info(f"No 'test_result_failures_suite.html' found under remote sub '{sub}'.")
+                    continue
+                # Generate a separate report for each HTML file in this subdir
+                for idx, left_path in enumerate(html_files, start=1):
+                    log.debug(f"Processing remote {left_path} for sub '{sub}' (part {idx})")
+                    left_title, left_tables = extract_testdetails(left_path)
+                    # Convert tables of this file only
+                    left_dfs = [_table_to_df(t) for t in left_tables]
+                    out_path = temp_dir / f"{sub}_{idx}.html"
+                    generate_report(
+                        left_dfs,
+                        [],
+                        [],
+                        left_title or f"{sub} – part {idx}",
+                        "",
+                        out_path,
+                        left_path,   # use this file as summary source
+                        None,
+                    )
+                    generated_files.append(out_path)
+        else:
+            # Local directory handling (existing logic)
+            root_dir = Path(args.left)
+            # Process each configured subdir (cts, gts, …) separately
+            for sub in subdirs:
+                sub_dir_path = root_dir / sub
+                if not sub_dir_path.is_dir():
+                    log.info(f"Subdirectory '{sub}' not found under {root_dir}, skipping.")
+                    continue
+                # Find all matching HTML files under this subdir
+                html_files = sorted(sub_dir_path.rglob('test_result_failures_suite.html'))
+                if not html_files:
+                    log.info(f"No 'test_result_failures_suite.html' under {sub_dir_path}, skipping.")
+                    continue
+                # Generate a separate report for each HTML file in this subdir
+                for idx, html_path in enumerate(html_files, start=1):
+                    left_path = str(html_path)
+                    log.debug(f"Processing {left_path} for sub '{sub}' (part {idx})")
+                    left_title, left_tables = extract_testdetails(left_path)
+                    left_dfs = [_table_to_df(t) for t in left_tables]
+                    out_path = temp_dir / f"{sub}_{idx}.html"
+                    generate_report(
+                        left_dfs,
+                        [],
+                        [],
+                        left_title or f"{sub} – part {idx}",
+                        "",
+                        out_path,
+                        left_path,   # use this file as summary source
+                        None,
+                    )
+                    generated_files.append(out_path)
+        # After processing all subdirs, skip the normal per‑subdir loop
+        subdirs = []
+    # Continue with the original loop (may be empty)
     for sub in subdirs:
         # Resolve left/right paths for this subdirectory
         left_candidate = (Path(args.left) / sub if not args.left.startswith(("http://", "https://")) else f"{args.left.rstrip('/')}/{sub}/")

@@ -5,7 +5,9 @@ import tempfile
 import requests
 import io
 import logging
+log = logging.getLogger(__name__)
 import re
+import bs4
 from typing import List, Optional, Union
 
 # Global counter for unique chart IDs across merged reports
@@ -161,6 +163,9 @@ def _make_table(df: pd.DataFrame) -> str:
 
 
 def _make_summary_table(source: Optional[Union[Path, str]]) -> List[str]:
+    """Extract the standard <table class='summary'> from the source HTML.
+    Returns a list containing the HTML string of the summary table, or empty list.
+    """
     """Extract a <table class='summary'> from *source* (local file or URL).
     Returns a list with the generated HTML string or empty list if not found.
     """
@@ -199,6 +204,38 @@ def _make_summary_table(source: Optional[Union[Path, str]]) -> List[str]:
     table_html = "<table class='summary'>" + ''.join(rows) + "</table>"
     return [table_html]
 
+def _extract_testsummary_table(source: Optional[Union[Path, str]]) -> List[str]:
+    """Extract a custom "testsummary" table.
+    This function attempts to locate a table that represents a test summary.
+    It skips tables with class "summary" or "testdetails" and then looks
+    for a table that contains keywords such as "test summary" in its textual
+    content. If found, the raw HTML of that table is returned.
+    """
+    if not source:
+        return []
+    try:
+        if isinstance(source, str) and source.startswith(("http://", "https://")):
+            resp = requests.get(source, timeout=10)
+            resp.raise_for_status()
+            html = resp.text
+        else:
+            html = Path(source).read_text(encoding="utf-8")
+    except Exception:
+        return []
+    # Parse HTML with BeautifulSoup for more reliable table detection
+    soup = bs4.BeautifulSoup(html, "html.parser")
+    for tbl in soup.find_all('table'):
+        # Skip known summary or testdetails tables based on class attribute
+        cls = tbl.get('class') or []
+        if any(c.lower() in ('summary', 'testdetails') for c in cls):
+            continue
+        # Check textual content for keywords indicating a test summary
+        text = tbl.get_text(separator=' ', strip=True).lower()
+        if 'test summary' in text or 'summary' in text:
+            # Return the HTML string of the table
+            return [str(tbl)]
+    return []
+
 def _extract_version(fingerprint: str) -> str | None:
     # (unchanged)
     """Extract a version number like 672 from a fingerprint string.
@@ -215,7 +252,6 @@ def _extract_version(fingerprint: str) -> str | None:
     # Remove any trailing ':' and following text
     candidate = candidate.split(':')[0]
     # Keep only digits (the version number)
-    import re
     m = re.search(r"(\d+)", candidate)
     return m.group(1) if m else None
 
@@ -272,6 +308,51 @@ def generate_report(
     single_mode = not right_dfs and not right_summary_source
     # Build summary tables if sources provided
     left_summary = _make_summary_table(left_summary_source) if left_summary_source else []
+    # Determine Modules Total from the summary table (if present)
+    modules_total = None
+    if left_summary:
+        # Look for a row with 'Modules Total' and capture the number (more robust)
+        summary_html = ''.join(left_summary)  # combine all summary tables into one string
+        # Allow any attributes and whitespace inside the <th> and <td> tags
+        # Try to find Modules Total in a <th> format first
+        m = re.search(r'<th[^>]*>\s*Modules\s*Total\s*:?\s*</th>\s*<td[^>]*>\s*(\d+)\s*</td>', summary_html, re.IGNORECASE | re.DOTALL)
+        # If not found, try <td class="rowtitle">Modules Total</td><td>NUM</td>
+        if not m:
+            m = re.search(r'<td[^>]*class\s*=\s*["\'].*?rowtitle.*?["\'][^>]*>\s*Modules\s*Total\s*</td>\s*<td[^>]*>\s*(\d+)\s*</td>', summary_html, re.IGNORECASE | re.DOTALL)
+        # Final fallback: generic pattern
+        if not m:
+            m = re.search(r'Modules\s*Total[^<]*</[^>]*>\s*<td[^>]*>\s*(\d+)\s*</td>', summary_html, re.IGNORECASE | re.DOTALL)
+        if m:
+            try:
+                modules_total = int(m.group(1))
+            except ValueError:
+                modules_total = None
+        else:
+            modules_total = None
+        log.debug(f"Modules Total parsed: {modules_total}, summary_html length: {len(summary_html)}")
+    # Conditional inclusion of testsummary
+    testsummary = []
+    if not left_dfs:
+        # No testdetails; attempt to extract testsummary table
+        candidate = _extract_testsummary_table(left_summary_source) if left_summary_source else []
+        # Ensure testsummary table uses the same styling as summary tables
+        if candidate:
+            # Add class "summary" if not already present
+            candidate_html = candidate[0]
+            if 'class=' not in candidate_html.lower():
+                candidate_html = candidate_html.replace('<table', '<table class="summary"', 1)
+            else:
+                # Ensure summary class is present in class attribute
+                candidate_html = re.sub(r'class\s*=\s*"([^"]*)"',
+                                         lambda m: f'class="{m.group(1)} summary"',
+                                         candidate_html, count=1, flags=re.IGNORECASE)
+            candidate = [candidate_html]
+        log.debug(f"Testsummary candidate found: {bool(candidate)}")
+        # Include only if Modules Total < 20 (and candidate exists)
+        if candidate and (modules_total is None or modules_total < 20):
+            testsummary = candidate
+    # Append any testsummary to left_summary
+    left_summary.extend(testsummary)
     # Fallback: if parsing failed, extract raw summary table via regex
     if not left_summary and left_summary_source:
         try:
