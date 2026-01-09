@@ -209,7 +209,8 @@ def _extract_testsummary_table(source: Optional[Union[Path, str]]) -> List[str]:
     This function attempts to locate a table that represents a test summary.
     It skips tables with class "summary" or "testdetails" and then looks
     for a table that contains keywords such as "test summary" in its textual
-    content. If found, the raw HTML of that table is returned.
+    content, or has a class name that explicitly indicates a test summary.
+    If found, the raw HTML of that table is returned.
     """
     if not source:
         return []
@@ -227,8 +228,13 @@ def _extract_testsummary_table(source: Optional[Union[Path, str]]) -> List[str]:
     for tbl in soup.find_all('table'):
         # Skip known summary or testdetails tables based on class attribute
         cls = tbl.get('class') or []
-        if any(c.lower() in ('summary', 'testdetails') for c in cls):
+        # Normalize class names to lower case for comparison
+        lower_cls = [c.lower() for c in cls]
+        if any(c in ('summary', 'testdetails') for c in lower_cls):
             continue
+        # If the table explicitly has a class indicating a test summary, accept it
+        if any('testsummary' in c for c in lower_cls):
+            return [str(tbl)]
         # Check textual content for keywords indicating a test summary
         text = tbl.get_text(separator=' ', strip=True).lower()
         if 'test summary' in text or 'summary' in text:
@@ -346,6 +352,12 @@ def generate_report(
                 candidate_html = re.sub(r'class\s*=\s*"([^"]*)"',
                                          lambda m: f'class="{m.group(1)} summary"',
                                          candidate_html, count=1, flags=re.IGNORECASE)
+            # In single‑column mode, style testsummary table cells
+            if single_mode:
+                # Apply background color to header cells (th) and data cells (td)
+                # Only affect this specific table to avoid overriding other tables
+                candidate_html = re.sub(r'<th([^>]*)>', r'<th\1 style="background:#a5c639">', candidate_html, flags=re.IGNORECASE)
+                candidate_html = re.sub(r'<td([^>]*)>', r'<td\1 style="background:#d4e9a9">', candidate_html, flags=re.IGNORECASE)
             candidate = [candidate_html]
         log.debug(f"Testsummary candidate found: {bool(candidate)}")
         # Include only if Modules Total < 20 (and candidate exists)
@@ -404,11 +416,13 @@ def generate_report(
         chart_id = f"moduleChart_{safe_suite}_{_chart_counter}"
 
     chart_html = f"<div class='chart'><canvas id='{chart_id}' width='230' height='230' style='width:230px;height:230px;'></canvas></div>"
+    # Determine label for pie chart based on mode
+    label1 = "Ignorable modules" if single_mode else "Same modules"
     chart_script = (
         "<script src='https://cdn.jsdelivr.net/npm/chart.js'></script>"
         "<script>"
         f"var ctx=document.getElementById('{chart_id}').getContext('2d');"
-        f"new Chart(ctx,{{type:'pie',data:{{labels:['Same modules ({same_modules})','Suspicious modules ({degrade_modules})'],datasets:[{{data:[{same_modules},{degrade_modules}],backgroundColor:['#4caf50','#f44336']}}]}} ,options:{{responsive:false,maintainAspectRatio:false}}}});"
+        f"new Chart(ctx,{{type:'pie',data:{{labels:['{label1} ({same_modules})','Suspicious modules ({degrade_modules})'],datasets:[{{data:[{same_modules},{degrade_modules}],backgroundColor:['#4caf50','#f44336']}}]}} ,options:{{responsive:false,maintainAspectRatio:false}}}});"
         "</script>"
     )
     # Build left summary: include left summary, CTS Diff block, chart, and list of degraded module names
