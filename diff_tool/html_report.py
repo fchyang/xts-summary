@@ -104,7 +104,7 @@ def _make_table(df: pd.DataFrame) -> str:
         # Skip possible extra header rows and empty rows
         if (test == "Test" and result == "Result" and details == "Details") or not test.strip():
             continue
-        col_class = "testname" if "." in test else "module"
+        col_class = "testname"
         test_td = f'<td class="{col_class}">{test}</td>'
         if result.strip().lower() == "fail":
             result_td = f'<td class="failed">{result}</td>'
@@ -149,7 +149,7 @@ def _make_table(df: pd.DataFrame) -> str:
         # Skip possible extra header rows and empty rows
         if (test == "Test" and result == "Result" and details == "Details") or not test.strip():
             continue
-        col_class = "testname" if "." in test else "module"
+        col_class = "testname"
         test_td = f'<td class="{col_class}">{test}</td>'
         if result.strip().lower() == "fail":
             result_td = f'<td class="failed">{result}</td>'
