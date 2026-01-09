@@ -177,29 +177,37 @@ def main(argv: List[str] | None = None) -> None:
             # Remote HTTP directory – iterate each configured subdir (cts, gts, …)
             base_url = args.left.rstrip('/') + '/'
             for sub in subdirs:
-                sub_url = f"{base_url}{sub}/"
-                # Crawl links recursively to collect all matching HTML files under this subdir
-                visited = set()
-                def _collect(url, depth=0):
-                    if depth > 5:
-                        return []
-                    results = []
-                    try:
-                        resp = requests.get(url, timeout=10)
-                        resp.raise_for_status()
-                        soup = bs4.BeautifulSoup(resp.text, "html.parser")
-                        for a in soup.find_all('a', href=True):
-                            href = a['href']
-                            full = href if href.startswith('http') else url.rstrip('/') + '/' + href.lstrip('/')
-                            if href.endswith('test_result_failures_suite.html'):
-                                results.append(full)
-                            elif href.endswith('/') and full not in visited:
-                                visited.add(full)
-                                results.extend(_collect(full, depth + 1))
-                    except Exception:
-                        pass
-                    return results
-                html_files = sorted(set(_collect(sub_url)))
+                # Try original sub name first
+                sub_variants = [sub]
+                # Add variant without underscore if it contains one
+                if '_' in sub:
+                    sub_variants.append(sub.replace('_', ''))
+                html_files = []
+                for sub_variant in sub_variants:
+                    sub_url = f"{base_url}{sub_variant}/"
+                    visited = set()
+                    def _collect(url, depth=0):
+                        if depth > 5:
+                            return []
+                        results = []
+                        try:
+                            resp = requests.get(url, timeout=10)
+                            resp.raise_for_status()
+                            soup = bs4.BeautifulSoup(resp.text, "html.parser")
+                            for a in soup.find_all('a', href=True):
+                                href = a['href']
+                                full = href if href.startswith('http') else url.rstrip('/') + '/' + href.lstrip('/')
+                                if href.endswith('test_result_failures_suite.html'):
+                                    results.append(full)
+                                elif href.endswith('/') and full not in visited:
+                                    visited.add(full)
+                                    results.extend(_collect(full, depth + 1))
+                        except Exception:
+                            pass
+                        return results
+                    html_files = sorted(set(_collect(sub_url)))
+                    if html_files:
+                        break
                 if not html_files:
                     log.info(f"No 'test_result_failures_suite.html' found under remote sub '{sub}'.")
                     continue
