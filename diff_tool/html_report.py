@@ -318,28 +318,33 @@ def generate_report(
     single_mode = not right_dfs and not right_summary_source
     # Build summary tables if sources provided
     left_summary = _make_summary_table(left_summary_source) if left_summary_source else []
-    # Determine Modules Total from the summary table (if present)
+    # Determine Modules Total and Modules Done from the summary table (if present)
     modules_total = None
+    modules_done = None
     if left_summary:
-        # Look for a row with 'Modules Total' and capture the number (more robust)
-        summary_html = ''.join(left_summary)  # combine all summary tables into one string
-        # Allow any attributes and whitespace inside the <th> and <td> tags
-        # Try to find Modules Total in a <th> format first
-        m = re.search(r'<th[^>]*>\s*Modules\s*Total\s*:?\s*</th>\s*<td[^>]*>\s*(\d+)\s*</td>', summary_html, re.IGNORECASE | re.DOTALL)
-        # If not found, try <td class="rowtitle">Modules Total</td><td>NUM</td>
-        if not m:
-            m = re.search(r'<td[^>]*class\s*=\s*["\'].*?rowtitle.*?["\'][^>]*>\s*Modules\s*Total\s*</td>\s*<td[^>]*>\s*(\d+)\s*</td>', summary_html, re.IGNORECASE | re.DOTALL)
-        # Final fallback: generic pattern
-        if not m:
-            m = re.search(r'Modules\s*Total[^<]*</[^>]*>\s*<td[^>]*>\s*(\d+)\s*</td>', summary_html, re.IGNORECASE | re.DOTALL)
-        if m:
-            try:
-                modules_total = int(m.group(1))
-            except ValueError:
-                modules_total = None
-        else:
-            modules_total = None
-        log.debug(f"Modules Total parsed: {modules_total}, summary_html length: {len(summary_html)}")
+        # Combine all summary tables into a single HTML string for regex searches
+        summary_html = ''.join(left_summary)
+        # Helper to search for a numeric value given a label (e.g., 'Modules Total')
+        def _search_value(label):
+            # Try <th>label</th><td>value</td>
+            pattern = rf'<th[^>]*>\s*{label}\s*:?\s*</th>\s*<td[^>]*>\s*(\d+)\s*</td>'
+            m = re.search(pattern, summary_html, re.IGNORECASE | re.DOTALL)
+            if m:
+                return int(m.group(1))
+            # Try <td class="rowtitle">label</td><td>value</td>
+            pattern = rf'<td[^>]*class\s*=\s*["\'].*?rowtitle.*?["\'][^>]*>\s*{label}\s*</td>\s*<td[^>]*>\s*(\d+)\s*</td>'
+            m = re.search(pattern, summary_html, re.IGNORECASE | re.DOTALL)
+            if m:
+                return int(m.group(1))
+            # Generic fallback
+            pattern = rf'{label}[^<]*</[^>]*>\s*<td[^>]*>\s*(\d+)\s*</td>'
+            m = re.search(pattern, summary_html, re.IGNORECASE | re.DOTALL)
+            if m:
+                return int(m.group(1))
+            return None
+        modules_total = _search_value('Modules Total')
+        modules_done = _search_value('Modules Done')
+        log.debug(f"Modules Total parsed: {modules_total}, Modules Done parsed: {modules_done}, summary_html length: {len(summary_html)}")
     # Conditional inclusion of testsummary
     testsummary = []
     if not left_dfs:
@@ -399,6 +404,20 @@ def generate_report(
     right_modules = {str(df.iloc[0,0]) for df in right_dfs}
     same_modules = len(left_modules & right_modules)
     degrade_modules = len(left_modules ^ right_modules)
+    # In single‑column mode, compute "Incomplete modules" from the summary table
+    # (Modules Total - Modules Done) and keep the original "Suspicious modules" count.
+    if single_mode:
+        # Use the previously parsed modules_total and modules_done values for single‑column calculations.
+        total_modules = modules_total
+        done_modules = modules_done
+        # Debug: Log extracted module counts
+        log.debug('Extracted total_modules=%s, done_modules=%s', total_modules, done_modules)
+        if total_modules is not None and done_modules is not None:
+            incomplete = max(0, total_modules - done_modules)
+        else:
+            incomplete = 0
+        same_modules = incomplete
+        # Keep degrade_modules as originally calculated (suspicious modules)
     module_summary = f"<table class='summary'><tr><th class='summary-header'>Same modules</th><td class='summary-data'>{same_modules}</td></tr><tr><th class='summary-header' style='color:black;font-weight:bold;background:#ff0000 !important;'>Suspicious modules</th><td class='summary-data' style='background:#fa5858;'>{degrade_modules}</td></tr></table>"
     # Prepare a simple pie chart for module comparison
     # Version info needed for a unique chart id (to avoid id clash when multiple reports are merged)
@@ -421,7 +440,7 @@ def generate_report(
 
     chart_html = f"<div class='chart'><canvas id='{chart_id}' width='230' height='230' style='width:230px;height:230px;'></canvas></div>"
     # Determine label for pie chart based on mode
-    label1 = "Ignorable modules" if single_mode else "Same modules"
+    label1 = "Incomplete modules" if single_mode else "Same modules"
     chart_script = (
         "<script src='https://cdn.jsdelivr.net/npm/chart.js'></script>"
         "<script>"
