@@ -86,6 +86,12 @@ def main(argv: List[str] | None = None) -> None:
     """
     parser = build_parser()
     args = parser.parse_args(argv)
+    # Adjust default output name for single‑column mode
+    if not args.right and args.output == "diff.html":
+        args.output = "xts_summary.html"
+    # Adjust default output name for dual‑column mode
+    if args.right and args.output == "diff.html":
+        args.output = "xts-diff_summary.html"
     logging.basicConfig(
         level=logging.DEBUG if args.verbose else logging.INFO,
         format="%(levelname)s: %(message)s",

@@ -565,6 +565,11 @@ def generate_report(
 
     # 写入文件一次性完成
     # Ensure parent directory exists
+    # Determine default output filename based on mode if not overridden
+    default_name = Path('xts.html') if single_mode else Path('xts-diff.html')
+    if output_path == Path('diff.html'):
+        output_path = default_name
+    # Ensure output directory exists
     output_path.parent.mkdir(parents=True, exist_ok=True)
     final_path = output_path
     try:
