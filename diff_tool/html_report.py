@@ -454,10 +454,32 @@ def generate_report(
     cleaned_module_names = []
     for name in degrade_module_names:
         # Strip common ABI prefixes and surrounding whitespace
-        cleaned = name.replace('armeabi-v7a ', '').replace('armeabi-v7a\u00a0', '').strip()
+        cleaned = name.replace('armeabi-v7a ', '').replace('armeabi-v7a\u00a0', '').replace('arm64-v8a ', '').replace('arm64-v8a\u00a0', '').strip()
         cleaned_module_names.append(cleaned)
     degrade_module_names = set(cleaned_module_names)
     degrade_modules_list_html = "<div class='degrade-modules'><span class='suspicious-label'>Suspicious modules:</span><br>" + '<br>'.join(sorted(degrade_module_names)) + "</div>"
+    # Gather module names from the "Incomplete modules" table (if present) for single‑column mode
+    incomplete_module_names = []
+    for df in left_dfs:
+        if df.empty:
+            continue
+        # Case 1: first cell contains the header
+        first_cell = str(df.iloc[0, 0]).strip().lower()
+        if first_cell == "incomplete modules":
+            for val in df.iloc[1:, 0]:
+                name = str(val).strip()
+                if name:
+                    # Strip common ABI prefixes and whitespace
+                    cleaned = name.replace('armeabi-v7a ', '').replace('armeabi-v7a\u00a0', '').replace('arm64-v8a ', '').replace('arm64-v8a\u00a0', '').strip()
+                    incomplete_module_names.append(cleaned)
+        # Case 2: single‑column DataFrame with column name as header
+        elif len(df.columns) == 1 and "incomplete modules" in str(df.columns[0]).strip().lower():
+            for val in df.iloc[:, 0]:
+                name = str(val).strip()
+                if name:
+                    cleaned = name.replace('armeabi-v7a ', '').replace('armeabi-v7a\u00a0', '').replace('arm64-v8a ', '').replace('arm64-v8a\u00a0', '').strip()
+                    incomplete_module_names.append(cleaned)
+    incomplete_modules_list_html = "<div class='degrade-modules'><span class='suspicious-label'>Incomplete modules:</span><br>" + '<br>'.join(sorted(incomplete_module_names)) + "</div>"
     # Build CTS Diff title with version info if available
     left_version = _extract_version(left_title)
     right_version = _extract_version(right_title)
@@ -484,6 +506,7 @@ def generate_report(
             "<div class='right-summary' style='display:flex; flex-direction:row; align-items:flex-start; gap:10px; visibility:visible; margin-top:1.5em;'>" +
             "<div class='chart-container'>" + chart_html + chart_script + "</div>" +
             degrade_modules_list_html +
+            incomplete_modules_list_html +
             "</div>"
             "</div>"
         )
