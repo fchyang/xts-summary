@@ -91,11 +91,18 @@ def main(argv: List[str] | None = None) -> None:
         format="%(levelname)s: %(message)s",
     )
     # Resolve directories to specific HTML file if needed
-    def _resolve(arg: str) -> str:
+    def _resolve(arg: str, subdir: str = "") -> str:
+        """Resolve *arg* to a concrete HTML file path.
+
+        - If *arg* is a URL, optionally search within the URL for an HTML file containing
+          ``testdetails`` when the URL ends with ``/``.
+        - If *arg* is a local directory, look for ``test_result_failures_suite.html``
+          inside the directory *or* inside the provided ``subdir`` (if any). If not found,
+          fall back to the first ``*.html`` file.
+        """
         if arg.startswith(("http://", "https://")):
-            # If the URL points to a directory (ends with slash), try to locate an HTML file inside
+            # URL handling – if it ends with a slash treat it as a directory
             if arg.endswith('/'):
-                # Helper to recursively search for an HTML file
                 def _search(url, depth=0):
                     if depth > 3:
                         return None
@@ -107,17 +114,14 @@ def main(argv: List[str] | None = None) -> None:
                             return cand
                     except Exception:
                         pass
-                    # Fetch directory listing
+                    # Fetch directory listing and look for .html links
                     try:
                         resp = requests.get(url, timeout=10)
                         resp.raise_for_status()
-                        import bs4
                         soup = bs4.BeautifulSoup(resp.text, "html.parser")
-                        # Look for direct .html links
                         for a in soup.find_all('a', href=True):
                             href = a['href']
                             if href.lower().endswith('.html'):
-                                # Build absolute URL if needed
                                 full_url = href if href.startswith('http') else url.rstrip('/') + '/' + href.lstrip('/')
                                 try:
                                     page_resp = requests.get(full_url, timeout=10)
@@ -125,18 +129,18 @@ def main(argv: List[str] | None = None) -> None:
                                         return full_url
                                 except Exception:
                                     pass
-                                # If not suitable, fallback to first .html
+                                # fallback to first html link
                                 if href.startswith('http'):
                                     return href
                                 else:
                                     base = url.rstrip('/') + '/'
                                     return base + href.lstrip('/')
-                        # If not found, recurse into subdirectories
+                        # recurse into sub‑directories
                         for a in soup.find_all('a', href=True):
                             href = a['href']
                             if href.endswith('/'):
                                 sub_url = href if href.startswith('http') else url.rstrip('/') + '/' + href.lstrip('/')
-                                found = _search(sub_url, depth+1)
+                                found = _search(sub_url, depth + 1)
                                 if found:
                                     return found
                     except Exception:
@@ -148,17 +152,16 @@ def main(argv: List[str] | None = None) -> None:
             return arg
         p = Path(arg)
         if p.is_dir():
-            # Look for the file inside the specified subdirectory, recursively
-            search_path = p / args.subdir
-            if search_path.is_dir():
-                # First try the expected file name
-                for file in search_path.rglob('test_result_failures_suite.html'):
-                    if file.is_file():
-                        return str(file)
-                # Fallback: pick the first HTML file found under the subdirectory
-                for file in search_path.rglob('*.html'):
-                    if file.is_file():
-                        return str(file)
+            # If a subdir name is provided (dual‑column mode), look inside it
+            search_root = p / subdir if subdir else p
+            # Prefer the conventional file name
+            for file in search_root.rglob('test_result_failures_suite.html'):
+                if file.is_file():
+                    return str(file)
+            # Fallback: first *.html file under the root
+            for file in search_root.rglob('*.html'):
+                if file.is_file():
+                    return str(file)
         return arg
     # ----- Multi‑subdir processing -----
     import re
@@ -268,8 +271,8 @@ def main(argv: List[str] | None = None) -> None:
         # Resolve left/right paths for this subdirectory
         left_candidate = (Path(args.left) / sub if not args.left.startswith(("http://", "https://")) else f"{args.left.rstrip('/')}/{sub}/")
         right_candidate = (Path(args.right) / sub if args.right and not args.right.startswith(("http://", "https://")) else (f"{args.right.rstrip('/')}/{sub}/" if args.right else ""))
-        left_path = _resolve(str(left_candidate))
-        right_path = _resolve(str(right_candidate)) if args.right else ""
+        left_path = _resolve(str(left_candidate), sub)
+        right_path = _resolve(str(right_candidate), sub) if args.right else ""
         log.debug(f"Processing subdir '{sub}': left={left_path}, right={right_path}")
 
         # Extract tables and titles

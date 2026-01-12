@@ -22,6 +22,7 @@ HTML_HEADER = """<!DOCTYPE html>
 /*added for single column layout*/
 .single-col {flex:0 0 70%; max-width:70%; padding:10px; box-sizing:border-box; overflow-y:auto; overflow-x:hidden; min-width:0; margin:0 auto;}
 .single-col h2 {margin-left:auto; margin-right:auto; text-align:center;}
+.filepath {margin-top:0.2em; margin-bottom:0.5em; text-align:center; font-size:0.96em; color:#555; word-break:break-all; overflow-wrap:anywhere;}
 .single-col .summary, .single-col .testdetails, .single-col .incompletemodules {margin-left:auto; margin-right:auto; text-align:left;}
 
 .single-col .summary th, .single-col .summary td {text-align:left;}
@@ -51,19 +52,22 @@ h2 {margin-top:0.5em;}
     .summary td {max-width:490px; word-break:break-all; white-space:normal; overflow-wrap:anywhere;}
 
     /* Horizontal divider with centered label */
-    .horizontal-divider {border-top:1px dashed #aaa; margin:-0.5em 0 12px 0; position:relative; text-align:center; width:calc(200% + 20px); left:-50%; margin-left:-10px; margin-right:-10px;}
+    .horizontal-divider {border-top:1px dashed #aaa; margin:-0.25em 0 12px 0; position:relative; text-align:center; width:calc(200% + 20px); left:-50%; margin-left:-10px; margin-right:-10px;}
     .horizontal-divider span {background:#fff; padding:0 8px; position:relative; top:-0.6em; font-weight:bold; font-size:1.3em;}
 
-    .col + .col .summary {margin-left:0;}
+        .col + .col .summary {margin-left:0;}
     .summary-wrapper {display:flex; align-items:flex-start; gap:10px; margin-top:-0.5em;}
     .col + .col .summary-wrapper {justify-content:flex-start;}
     .col + .col .left-summary {margin-left:0;}
     .col + .col .right-summary {visibility:hidden; width:0;}
     .summary-wrapper .right-summary {display:flex; flex-direction:column; gap:5px;}
     .cts-diff {background:orange; padding:4px; font-weight:bold; text-align:center; margin-top:12px;}
-.degrade-modules {color:#b22222;background:none;font-size:0.9em;}
-.chart {margin-top:-0.5em;}
-.suspicious-label {color:black;font-weight:bold;background:none;}
+    .degrade-modules {color:#b22222;background:none;font-size:0.9em;}
+    .chart {margin-top:-0.5em;}
+    .suspicious-label {color:black;font-weight:bold;background:none;}
+    /* Align file path with title in double‑column mode */
+    .col .filepath {text-align:left; margin-left:0;}
+
 </style></head><body>
 <div class='container'>"""
 HTML_FOOTER = """</div></body></html>"""
@@ -484,25 +488,33 @@ def generate_report(
 
     if single_mode:
         # Single column layout: use .single-col class, omit right side elements
+        # Prepare optional file path display for single column mode
+        left_path_line = f"<div class='filepath'><a href='{left_summary_source}'>{left_summary_source}</a></div>" if left_summary_source else ""
         parts = [
             HTML_HEADER,
             f"<div class='single-col'>",
             f"<h2>{left_title}</h2>" if left_title else "",
+            left_path_line,
             left_summary_combined,
             *[_make_table(df) for df in left_dfs],
             "</div>",
             HTML_FOOTER,
         ]
     else:
+        # Double column layout: add file path links under each title
+        left_path_line = f"<div class='filepath'><a href='{left_summary_source}'>{left_summary_source}</a></div>" if left_summary_source else ""
+        right_path_line = f"<div class='filepath'><a href='{right_summary_source}'>{right_summary_source}</a></div>" if right_summary_source else ""
         parts = [
             HTML_HEADER,
             f"<div class='col'>",
             f"<h2>{left_title}</h2>" if left_title else "",
+            left_path_line,
             left_summary_combined,
             *[_make_table(df) for df in left_dfs],
             "</div>",
             f"<div class='col'>",
             f"<h2>{right_title}</h2>" if right_title else "",
+            right_path_line,
             right_summary_combined,
             *[_make_table(df) for df in right_dfs],
             "</div>",
