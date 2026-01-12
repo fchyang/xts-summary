@@ -4,8 +4,8 @@
  - [v] 移除 `comparer.py` 中注释的多余 `+` 符号。
  - [v] 为 `compare_tables` 添加异常捕获并记录日志。
  - [ ] 删除 `html_report.py` 中重复的 `_make_table` 实现，只保留一段。
- - [ ] 用 `BeautifulSoup` 替代字符串 `re.sub` 修改 table class。
- - [ ] 将全局 `_chart_counter` 改为 `uuid.uuid4()` 或 `itertools.count()`。
+ - [v] 用 `BeautifulSoup` 替代字符串 `re.sub` 修改 table class。
+ - [v] 将全局 `_chart_counter` 改为 `uuid.uuid4()` 或 `itertools.count()`。
  - [ ] 把 CSS/HTML 模板抽离到独立文件（如 `templates/report.html`）并使用 `jinja2` 渲染。
  - [ ] 为 `generate_report` 添加关键字参数包装的 `ReportConfig` dataclass。
  - [ ] 添加 `tests/`，编写至少 10 条单元测试覆盖数据提取、表格生成与差异统计。

@@ -11,7 +11,8 @@ import bs4
 from typing import List, Optional, Union
 
 # Global counter for unique chart IDs across merged reports
-_chart_counter = 0
+import itertools
+_chart_counter = itertools.count(1)
 
 # -------------------------------------------------
 # 常量区（HTML 结构、CSS、模板）
@@ -352,22 +353,25 @@ def generate_report(
         candidate = _extract_testsummary_table(left_summary_source) if left_summary_source else []
         # Ensure testsummary table uses the same styling as summary tables
         if candidate:
-            # Add class "summary" if not already present
-            candidate_html = candidate[0]
-            if 'class=' not in candidate_html.lower():
-                candidate_html = candidate_html.replace('<table', '<table class="summary"', 1)
-            else:
-                # Ensure summary class is present in class attribute
-                candidate_html = re.sub(r'class\s*=\s*"([^"]*)"',
-                                         lambda m: f'class="{m.group(1)} summary"',
-                                         candidate_html, count=1, flags=re.IGNORECASE)
-            # In single‑column mode, style testsummary table cells
-            if single_mode:
-                # Apply background color to header cells (th) and data cells (td)
-                # Only affect this specific table to avoid overriding other tables
-                candidate_html = re.sub(r'<th([^>]*)>', r'<th\1 style="background:#a5c639">', candidate_html, flags=re.IGNORECASE)
-                candidate_html = re.sub(r'<td([^>]*)>', r'<td\1 style="background:#d4e9a9">', candidate_html, flags=re.IGNORECASE)
-            candidate = [candidate_html]
+            # Use BeautifulSoup to add class and optional styles
+            soup = bs4.BeautifulSoup(candidate[0], "html.parser")
+            table_tag = soup.find('table')
+            if table_tag:
+                # Add "summary" to class list if not present
+                existing_classes = table_tag.get('class') or []
+                if 'summary' not in existing_classes:
+                    existing_classes.append('summary')
+                table_tag['class'] = existing_classes
+                if single_mode:
+                    # Add background style to header cells (th)
+                    for th in table_tag.find_all('th'):
+                        prev_style = th.get('style', '')
+                        th['style'] = (prev_style + ';' if prev_style else '') + 'background:#a5c639'
+                    # Add background style to data cells (td)
+                    for td in table_tag.find_all('td'):
+                        prev_style = td.get('style', '')
+                        td['style'] = (prev_style + ';' if prev_style else '') + 'background:#d4e9a9'
+            candidate = [str(soup)]
         log.debug(f"Testsummary candidate found: {bool(candidate)}")
         # Include only if Modules Total < 20 (and candidate exists)
         if candidate and (modules_total is None or modules_total < 20):
@@ -430,13 +434,13 @@ def generate_report(
     # Make a safe ID component (remove spaces and slashes)
     safe_suite = suite_name.replace(' ', '_').replace('/', '_')
     # Use a global counter to guarantee unique IDs across all generated reports
-    global _chart_counter
-    _chart_counter += 1
+    # obtain a unique chart index
+    chart_index = next(_chart_counter)
     # Build chart ID using suite name and counter (and versions if available)
     if left_version and right_version:
-        chart_id = f"moduleChart_{safe_suite}_{left_version}_{right_version}_{_chart_counter}"
+        chart_id = f"moduleChart_{safe_suite}_{left_version}_{right_version}_{chart_index}"
     else:
-        chart_id = f"moduleChart_{safe_suite}_{_chart_counter}"
+        chart_id = f"moduleChart_{safe_suite}_{chart_index}"
 
     chart_html = f"<div class='chart'><canvas id='{chart_id}' width='230' height='230' style='width:230px;height:230px;'></canvas></div>"
     # Determine label for pie chart based on mode
