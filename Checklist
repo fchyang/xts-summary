@@ -1,8 +1,8 @@
- - [ ] 删除 `cli.py` 中重复的 docstring 与多余的 `import`。
- - [ ] 把 `cli.py` 的递归/本地处理逻辑拆成 `_process_remote()` 与 `_process_local()`。
- - [ ] 将 `_is_url()` 抽象到 `utils.py`，在全项目统一使用。
- - [ ] 移除 `comparer.py` 中注释的多余 `+` 符号。
- - [ ] 为 `compare_tables` 添加异常捕获并记录日志。
+ - [v] 删除 `cli.py` 中重复的 docstring 与多余的 `import`。
+ - [v] 把 `cli.py` 的递归/本地处理逻辑拆成 `_process_remote()` 与 `_process_local()`。
+ - [v] 将 `_is_url()` 抽象到 `utils.py`，在全项目统一使用。
+ - [v] 移除 `comparer.py` 中注释的多余 `+` 符号。
+ - [v] 为 `compare_tables` 添加异常捕获并记录日志。
  - [ ] 删除 `html_report.py` 中重复的 `_make_table` 实现，只保留一段。
  - [ ] 用 `BeautifulSoup` 替代字符串 `re.sub` 修改 table class。
  - [ ] 将全局 `_chart_counter` 改为 `uuid.uuid4()` 或 `itertools.count()`。
