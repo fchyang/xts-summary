@@ -1,0 +1,7 @@
+#!/usr/bin/env python
+"""Entry script for the summary-tool CLI (formerly diff-tool)."""
+
+from diff_tool.cli import main
+
+if __name__ == "__main__":
+    main()

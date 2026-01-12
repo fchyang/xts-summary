@@ -23,11 +23,107 @@ from typing import List
 
 from .extractor import extract_testdetails
 from .comparer import compare_tables, _table_to_df
-from .html_report import generate_report
+from .html_report import generate_report, HTML_HEADER, HTML_FOOTER
 import bs4
+from .utils import is_url
 
 log = logging.getLogger(__name__)
 
+
+def _process_remote(left_url: str, subdirs: list[str], temp_dir: Path) -> list[Path]:
+    """Process remote HTTP directory.
+
+    Returns a list of generated report file paths.
+    """
+    generated: list[Path] = []
+    base_url = left_url.rstrip('/') + '/'
+    for sub in subdirs:
+        # Try original sub name first, plus variant without underscore
+        sub_variants = [sub]
+        if '_' in sub:
+            sub_variants.append(sub.replace('_', ''))
+        html_files: list[str] = []
+        for sub_variant in sub_variants:
+            sub_url = f"{base_url}{sub_variant}/"
+            visited: set[str] = set()
+            def _collect(url: str, depth: int = 0) -> list[str]:
+                if depth > 5:
+                    return []
+                results: list[str] = []
+                try:
+                    resp = requests.get(url, timeout=10)
+                    resp.raise_for_status()
+                    soup = bs4.BeautifulSoup(resp.text, "html.parser")
+                    for a in soup.find_all('a', href=True):
+                        href = a['href']
+                        full = href if href.startswith('http') else url.rstrip('/') + '/' + href.lstrip('/')
+                        if href.endswith('test_result_failures_suite.html'):
+                            results.append(full)
+                        elif href.endswith('/') and full not in visited:
+                            visited.add(full)
+                            results.extend(_collect(full, depth + 1))
+                except Exception:
+                    pass
+                return results
+            html_files = sorted(set(_collect(sub_url)))
+            if html_files:
+                break
+        if not html_files:
+            log.info(f"No 'test_result_failures_suite.html' found under remote sub '{sub}'.")
+            continue
+        for idx, left_path in enumerate(html_files, start=1):
+            log.debug(f"Processing remote {left_path} for sub '{sub}' (part {idx})")
+            left_title, left_tables = extract_testdetails(left_path)
+            left_dfs = [_table_to_df(t) for t in left_tables]
+            out_path = temp_dir / f"{sub}_{idx}.html"
+            generate_report(
+                left_dfs,
+                [],
+                [],
+                left_title or f"{sub} – part {idx}",
+                "",
+                out_path,
+                left_path,
+                None,
+            )
+            generated.append(out_path)
+    return generated
+
+
+def _process_local(left_root: str, subdirs: list[str], temp_dir: Path) -> list[Path]:
+    """Process a local directory.
+
+    Returns a list of generated report file paths.
+    """
+    generated: list[Path] = []
+    root_dir = Path(left_root)
+    for sub in subdirs:
+        sub_dir_path = root_dir / sub
+        if not sub_dir_path.is_dir():
+            log.info(f"Subdirectory '{sub}' not found under {root_dir}, skipping.")
+            continue
+        html_files = sorted(sub_dir_path.rglob('test_result_failures_suite.html'))
+        if not html_files:
+            log.info(f"No 'test_result_failures_suite.html' under {sub_dir_path}, skipping.")
+            continue
+        for idx, html_path in enumerate(html_files, start=1):
+            left_path = str(html_path)
+            log.debug(f"Processing {left_path} for sub '{sub}' (part {idx})")
+            left_title, left_tables = extract_testdetails(left_path)
+            left_dfs = [_table_to_df(t) for t in left_tables]
+            out_path = temp_dir / f"{sub}_{idx}.html"
+            generate_report(
+                left_dfs,
+                [],
+                [],
+                left_title or f"{sub} – part {idx}",
+                "",
+                out_path,
+                left_path,
+                None,
+            )
+            generated.append(out_path)
+    return generated
 
 
 def build_parser() -> argparse.ArgumentParser:
@@ -35,11 +131,6 @@ def build_parser() -> argparse.ArgumentParser:
     Supports providing two HTML files/URLs (left & right) for comparison, or
     a single directory (left) with ``--recursive`` to automatically locate all
     ``test_result_failures_suite.html`` files under it.
-    """
-    """Create argument parser.
-    Supports providing either HTML files directly or directories containing
-    specific subdirectories (e.g., cts, ctsongsi, gts, …) where the file
-    ``test_result_failures_suite.html`` resides.
     """
     parser = argparse.ArgumentParser(
         description="Compare 'testdetails' tables from two HTML sources across multiple subdirectories."
@@ -170,9 +261,6 @@ def main(argv: List[str] | None = None) -> None:
                     return str(file)
         return arg
     # ----- Multi‑subdir processing -----
-    import re
-    from pathlib import Path
-    from .html_report import HTML_HEADER, HTML_FOOTER
 
     # If only left path provided, we operate in single‑column mode (no comparison)
     single_mode = not args.right
@@ -180,96 +268,14 @@ def main(argv: List[str] | None = None) -> None:
     temp_dir = Path.cwd() / "tmp_diff_reports"
     temp_dir.mkdir(parents=True, exist_ok=True)
     generated_files = []
-    if (args.recursive or (single_mode and (Path(args.left).is_dir() or args.left.startswith(('http://', 'https://'))))):
-        # ---------- Recursive single‑directory mode (per *ts subdir) ----------
-        if args.left.startswith(('http://', 'https://')):
-            # Remote HTTP directory – iterate each configured subdir (cts, gts, …)
-            base_url = args.left.rstrip('/') + '/'
-            for sub in subdirs:
-                # Try original sub name first
-                sub_variants = [sub]
-                # Add variant without underscore if it contains one
-                if '_' in sub:
-                    sub_variants.append(sub.replace('_', ''))
-                html_files = []
-                for sub_variant in sub_variants:
-                    sub_url = f"{base_url}{sub_variant}/"
-                    visited = set()
-                    def _collect(url, depth=0):
-                        if depth > 5:
-                            return []
-                        results = []
-                        try:
-                            resp = requests.get(url, timeout=10)
-                            resp.raise_for_status()
-                            soup = bs4.BeautifulSoup(resp.text, "html.parser")
-                            for a in soup.find_all('a', href=True):
-                                href = a['href']
-                                full = href if href.startswith('http') else url.rstrip('/') + '/' + href.lstrip('/')
-                                if href.endswith('test_result_failures_suite.html'):
-                                    results.append(full)
-                                elif href.endswith('/') and full not in visited:
-                                    visited.add(full)
-                                    results.extend(_collect(full, depth + 1))
-                        except Exception:
-                            pass
-                        return results
-                    html_files = sorted(set(_collect(sub_url)))
-                    if html_files:
-                        break
-                if not html_files:
-                    log.info(f"No 'test_result_failures_suite.html' found under remote sub '{sub}'.")
-                    continue
-                # Generate a separate report for each HTML file in this subdir
-                for idx, left_path in enumerate(html_files, start=1):
-                    log.debug(f"Processing remote {left_path} for sub '{sub}' (part {idx})")
-                    left_title, left_tables = extract_testdetails(left_path)
-                    # Convert tables of this file only
-                    left_dfs = [_table_to_df(t) for t in left_tables]
-                    out_path = temp_dir / f"{sub}_{idx}.html"
-                    generate_report(
-                        left_dfs,
-                        [],
-                        [],
-                        left_title or f"{sub} – part {idx}",
-                        "",
-                        out_path,
-                        left_path,   # use this file as summary source
-                        None,
-                    )
-                    generated_files.append(out_path)
+    # ---------- Recursive processing (single‑column mode) ----------
+    # ---------- Recursive processing (single‑column mode) ----------
+    if args.recursive or (single_mode and (Path(args.left).is_dir() or is_url(args.left))):
+        # Choose remote or local handling based on left argument type
+        if is_url(args.left):
+            generated_files.extend(_process_remote(args.left, subdirs, temp_dir))
         else:
-            # Local directory handling (existing logic)
-            root_dir = Path(args.left)
-            # Process each configured subdir (cts, gts, …) separately
-            for sub in subdirs:
-                sub_dir_path = root_dir / sub
-                if not sub_dir_path.is_dir():
-                    log.info(f"Subdirectory '{sub}' not found under {root_dir}, skipping.")
-                    continue
-                # Find all matching HTML files under this subdir
-                html_files = sorted(sub_dir_path.rglob('test_result_failures_suite.html'))
-                if not html_files:
-                    log.info(f"No 'test_result_failures_suite.html' under {sub_dir_path}, skipping.")
-                    continue
-                # Generate a separate report for each HTML file in this subdir
-                for idx, html_path in enumerate(html_files, start=1):
-                    left_path = str(html_path)
-                    log.debug(f"Processing {left_path} for sub '{sub}' (part {idx})")
-                    left_title, left_tables = extract_testdetails(left_path)
-                    left_dfs = [_table_to_df(t) for t in left_tables]
-                    out_path = temp_dir / f"{sub}_{idx}.html"
-                    generate_report(
-                        left_dfs,
-                        [],
-                        [],
-                        left_title or f"{sub} – part {idx}",
-                        "",
-                        out_path,
-                        left_path,   # use this file as summary source
-                        None,
-                    )
-                    generated_files.append(out_path)
+            generated_files.extend(_process_local(args.left, subdirs, temp_dir))
         # After processing all subdirs, skip the normal per‑subdir loop
         subdirs = []
     # Continue with the original loop (may be empty)
