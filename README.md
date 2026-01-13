@@ -26,9 +26,13 @@
 ---
 
 ## 使用示例
-
-1、
-2、
+以AATS实际目录，ex：
+单参数：
+summary-tool http://10.22.193.246/AATS_XTS_REPORTS/Merlin9_ANR16/DB2881/20260102_171/
+- 会把171版本下面所有的报告汇总到xts_summary.html，单列显示
+双参数：
+summary-tool summary-tool http://10.22.193.246/AATS_XTS_REPORTS/2875P_ANR14/DB2302/20251130_667/ http://10.22.193.246/AATS_XTS_REPORTS/2875P_ANR14/DB2302/20251205_672/
+- 会把667、672下面所有报告汇总，然后比对生成xts-diff_summary.html，双列显示
 
 ### 单列模式（单参数）
 单列模式仅提供左侧路径（目录或 HTML 文件），工具会递归搜索 `test_result_failures_suite.html`（或首个 HTML）并生成单独的汇总报告。

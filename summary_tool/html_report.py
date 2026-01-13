@@ -22,7 +22,7 @@ HTML_HEADER = """<!DOCTYPE html>
 <html><head><meta charset='utf-8'><title>Table Diff</title>
 <style>
 /*added for single column layout*/
-.single-col {flex:0 0 70%; max-width:70%; padding:10px; box-sizing:border-box; overflow-y:auto; overflow-x:hidden; min-width:0; margin:0 auto;}
+.single-col {flex:0 0 72%; max-width:72%; padding:10px; box-sizing:border-box; overflow-y:auto; overflow-x:hidden; min-width:0; margin:0 auto;}
 .single-col h2 {margin-left:auto; margin-right:auto; text-align:center;}
 .filepath {margin-top:0.2em; margin-bottom:0.5em; text-align:center; font-size:0.96em; color:#555; word-break:break-all; overflow-wrap:anywhere;}
 .single-col .summary, .single-col .testdetails, .single-col .incompletemodules {margin-left:auto; margin-right:auto; text-align:left;}
