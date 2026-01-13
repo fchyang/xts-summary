@@ -18,6 +18,7 @@ import logging
 import requests
 from pathlib import Path
 from typing import List
+import sys
 
 
 
@@ -183,10 +184,20 @@ def main(argv: List[str] | None = None) -> None:
     # Adjust default output name for dual‑column mode
     if args.right and args.output == "diff.html":
         args.output = "xts-diff_summary.html"
-    logging.basicConfig(
-        level=logging.DEBUG if args.verbose else logging.INFO,
-        format="%(levelname)s: %(message)s",
-    )
+    # Logging configuration is left to the caller. The library uses
+    # module‑level ``log = logging.getLogger(__name__)``. If a custom level
+    # is desired, the invoking program can configure the root logger (or the
+    # ``diff_tool`` logger) before calling ``main``.
+    # Example: ``logging.basicConfig(level=logging.DEBUG)``
+    # Ensure at least one handler exists so INFO logs are visible by default.
+    if not logging.getLogger().hasHandlers():
+        logging.basicConfig(level=logging.INFO, format="%(levelname)s: %(message)s")
+    # The ``--verbose`` flag is retained for backward compatibility but now
+    # only adjusts the library logger's level directly.
+    if args.verbose:
+        log.setLevel(logging.DEBUG)
+    else:
+        log.setLevel(logging.INFO)
     # Resolve directories to specific HTML file if needed
     def _resolve(arg: str, subdir: str = "") -> str:
         """Resolve *arg* to a concrete HTML file path.
@@ -327,7 +338,7 @@ def main(argv: List[str] | None = None) -> None:
     # ----- Merge generated reports -----
     if not generated_files:
         log.error("No diff reports were generated.")
-        return
+        sys.exit(1)
     # Determine base report (cts) and other reports
     base_file = None
     other_files = []

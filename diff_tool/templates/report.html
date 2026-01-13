@@ -1,0 +1,82 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset='utf-8'>
+    <title>Table Diff</title>
+    <style>
+    /*added for single column layout*/
+    .single-col {flex:0 0 70%; max-width:70%; padding:10px; box-sizing:border-box; overflow-y:auto; overflow-x:hidden; min-width:0; margin:0 auto;}
+    .single-col h2 {margin-left:auto; margin-right:auto; text-align:center;}
+    .filepath {margin-top:0.2em; margin-bottom:0.5em; text-align:center; font-size:0.96em; color:#555; word-break:break-all; overflow-wrap:anywhere;}
+    .single-col .summary, .single-col .testdetails, .single-col .incompletemodules {margin-left:auto; margin-right:auto; text-align:left;}
+
+    .single-col .summary th, .single-col .summary td {text-align:left;}
+    .failuredetails {white-space:normal; word-break:break-all;}
+
+    body {font-family:Arial, sans-serif; margin:0; padding:0;}
+    .container {display:flex; flex-wrap:wrap; width:100%; overflow-x:auto;}
+     .col {flex:0 0 50%; max-width:50%; padding:10px; box-sizing:border-box; overflow-y:auto; overflow-x:hidden; min-width:0;}
+    .col + .col {border-left:1px dashed #aaa;}
+    /* vertical divider between columns */
+
+    table {border-collapse:collapse; margin:10px 0; width:100%;}
+    /* make cells wrap content */
+    .testdetails td {white-space:normal; word-break:break-all;}
+
+    th, td {border:1px solid #aaa; padding:4px 8px;}
+    h2 {margin-top:0.5em;}
+    .testdetails td.module   {background:none;}
+    .testdetails th.module   {background:none;}
+    .testdetails td.testname {background:#d4e9a9;}
+    .testdetails td.failed   {background:#fa5858; text-align:center; font-weight:bold;}
+    .testdetails td.failuredetails {background:#d4e9a9;}
+    .testdetails th          {background:#a5c639 !important;}
+    .testdetails th.module   {background:none !important;}
+        .summary-header {background:#a5c639 !important; border: solid 1px #aaa; text-align:left;}
+        .summary-data {background:#d4e9a9; word-break:break-all; white-space:normal;}
+        .summary td {max-width:490px; word-break:break-all; white-space:normal; overflow-wrap:anywhere;}
+
+        /* Horizontal divider with centered label */
+        .horizontal-divider {border-top:1px dashed #aaa; margin:-0.25em 0 12px 0; position:relative; text-align:center; width:calc(200% + 20px); left:-50%; margin-left:-10px; margin-right:-10px;}
+        .horizontal-divider span {background:#fff; padding:0 8px; position:relative; top:-0.6em; font-weight:bold; font-size:1.3em;}
+
+            .col + .col .summary {margin-left:0;}
+        .summary-wrapper {display:flex; align-items:flex-start; gap:10px; margin-top:-0.5em;}
+        .col + .col .summary-wrapper {justify-content:flex-start;}
+        .col + .col .left-summary {margin-left:0;}
+        .col + .col .right-summary {visibility:hidden; width:0;}
+        .summary-wrapper .right-summary {display:flex; flex-direction:column; gap:5px;}
+        .cts-diff {background:orange; padding:4px; font-weight:bold; text-align:center; margin-top:12px;}
+        .degrade-modules {color:#b22222;background:none;font-size:0.9em;}
+        .chart {margin-top:-0.5em;}
+        .suspicious-label {color:black;font-weight:bold;background:none;}
+        /* Align file path with title in double‑column mode */
+        .col .filepath {text-align:left; margin-left:0;}
+    </style>
+</head>
+<body>
+<div class='container'>
+{% if single_mode %}
+    <div class='single-col'>
+        {% if left_title %}<h2>{{ left_title }}</h2>{% endif %}
+        {% if left_path %}<div class='filepath'><a href='{{ left_path }}'>{{ left_path }}</a></div>{% endif %}
+        {{ left_summary_combined|safe }}
+        {{ left_tables|safe }}
+    </div>
+{% else %}
+    <div class='col'>
+        {% if left_title %}<h2>{{ left_title }}</h2>{% endif %}
+        {% if left_path %}<div class='filepath'><a href='{{ left_path }}'>{{ left_path }}</a></div>{% endif %}
+        {{ left_summary_combined|safe }}
+        {{ left_tables|safe }}
+    </div>
+    <div class='col'>
+        {% if right_title %}<h2>{{ right_title }}</h2>{% endif %}
+        {% if right_path %}<div class='filepath'><a href='{{ right_path }}'>{{ right_path }}</a></div>{% endif %}
+        {{ right_summary_combined|safe }}
+        {{ right_tables|safe }}
+    </div>
+{% endif %}
+</div>
+</body>
+</html>

@@ -1,5 +1,5 @@
 #!/usr/bin/env python
-"""Entry script for the summary-tool CLI (formerly diff-tool)."""
+"""Entry script for the xts-summary CLI (formerly diff-tool)."""
 
 from diff_tool.cli import main
 
