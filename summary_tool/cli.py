@@ -305,6 +305,10 @@ def main(argv: List[str] | None = None) -> None:
     single_mode = not args.right
     subdirs = [s.strip() for s in args.subdirs.split(",") if s.strip()]
     temp_dir = Path.cwd() / "tmp_diff_reports"
+    # 每次运行前清空临时报告目录，防止旧文件干扰
+    import shutil
+    if temp_dir.exists():
+        shutil.rmtree(temp_dir)
     temp_dir.mkdir(parents=True, exist_ok=True)
     generated_files = []
     # ---------- Recursive processing (single‑column mode) ----------
