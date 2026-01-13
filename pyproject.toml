@@ -1,0 +1,27 @@
+[project]
+name = "summary-tool"
+version = "0.1.0"
+description = "Compare testdetails tables from HTML reports and generate diff/summary HTML reports."
+readme = "README.md"
+requires-python = ">=3.11"
+license = {text = "MIT"}
+authors = [
+    {name = "chance_fan", email = "chance_fan@realsil.com.cn"},
+    {name = "Continue CLI", email = "noreply@continue.dev"}
+]
+# List runtime dependencies here (or keep empty and use requirements.txt)
+dependencies = []
+
+# Build system requirements
+[build-system]
+requires = ["setuptools>=68.0.0", "wheel"]
+build-backend = "setuptools.build_meta"
+
+# Explicit package discovery – only include the actual package
+[tool.setuptools]
+packages = ["summary_tool"]
+include-package-data = true
+
+# Entry points for console scripts (PEP 621)
+[project.scripts]
+summary-tool = "summary_tool.cli:main"
