@@ -19,7 +19,7 @@ _chart_counter = itertools.count(1)
 # 常量区（HTML 结构、CSS、模板）
 # -------------------------------------------------
 HTML_HEADER = """<!DOCTYPE html>
-<html><head><meta charset='utf-8'><title>Table Diff</title>
+<html><head><meta charset='utf-8'><title>Table Diff</title><base target="_blank">
 <style>
 /*added for single column layout*/
 .single-col {flex:0 0 72%; max-width:72%; padding:10px; box-sizing:border-box; overflow-y:auto; overflow-x:hidden; min-width:0; margin:0 auto;}
