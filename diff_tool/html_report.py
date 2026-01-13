@@ -1,10 +1,10 @@
-
 from pathlib import Path
 import pandas as pd
 import tempfile
 import requests
 import io
 import logging
+
 log = logging.getLogger(__name__)
 import re
 import bs4
@@ -12,6 +12,7 @@ from typing import List, Optional, Union
 
 # Global counter for unique chart IDs across merged reports
 import itertools
+
 _chart_counter = itertools.count(1)
 
 # -------------------------------------------------
@@ -72,8 +73,11 @@ h2 {margin-top:0.5em;}
 </style></head><body>
 <div class='container'>"""
 HTML_FOOTER = """</div></body></html>"""
-MODULE_ROW_TMPL = '<tr><th colspan="3" class="module" style="text-align:left;">{module}</th></tr>'
-TABLE_HEADER   = '<tr><th>Test</th><th>Result</th><th>Details</th></tr>'
+MODULE_ROW_TMPL = (
+    '<tr><th colspan="3" class="module" style="text-align:left;">{module}</th></tr>'
+)
+TABLE_HEADER = "<tr><th>Test</th><th>Result</th><th>Details</th></tr>"
+
 
 def _make_table(df: pd.DataFrame) -> str:
     """Convert a DataFrame into the custom HTML table with proper CSS classes.
@@ -83,18 +87,36 @@ def _make_table(df: pd.DataFrame) -> str:
     rows = df.values.tolist()
     # Handle "Incomplete Modules" table (header plus list of modules)
     if rows and (
-        str(rows[0][0]).replace('\xa0',' ').strip().lower() == "incomplete modules"
-        or (len(df.columns) == 1 and str(df.columns[0]).replace('\xa0',' ').strip().lower() == "incomplete modules")
+        str(rows[0][0]).replace("\xa0", " ").strip().lower() == "incomplete modules"
+        or (
+            len(df.columns) == 1
+            and str(df.columns[0]).replace("\xa0", " ").strip().lower()
+            == "incomplete modules"
+        )
     ):
         # Determine header text
-        header = rows[0][0] if str(rows[0][0]).replace('\xa0',' ').strip().lower() == "incomplete modules" else df.columns[0]
-        parts = [f"<tr><th colspan='3' class='module' style='text-align:left;background:#a5c639 !important;color:black;font-weight:bold;'>{header}</th></tr>"]
+        header = (
+            rows[0][0]
+            if str(rows[0][0]).replace("\xa0", " ").strip().lower()
+            == "incomplete modules"
+            else df.columns[0]
+        )
+        parts = [
+            f"<tr><th colspan='3' class='module' style='text-align:left;background:#a5c639 !important;color:black;font-weight:bold;'>{header}</th></tr>"
+        ]
         # Data rows start after header if header is in first row, otherwise all rows are data
-        data_start = 1 if str(rows[0][0]).replace('\xa0',' ').strip().lower() == "incomplete modules" else 0
+        data_start = (
+            1
+            if str(rows[0][0]).replace("\xa0", " ").strip().lower()
+            == "incomplete modules"
+            else 0
+        )
         for row in rows[data_start:]:
             module_name = str(row[0]) if row else ""
             if module_name:
-                parts.append(f"<tr><td colspan='3' class='module' style='background:#d4e9a9;color:black;'>{module_name}</td></tr>")
+                parts.append(
+                    f"<tr><td colspan='3' class='module' style='background:#d4e9a9;color:black;'>{module_name}</td></tr>"
+                )
         return f"<table class='incompletemodules' style='width:auto;'>{''.join(parts)}</table>"
     if not rows:
         return "<table class='testdetails'></table>"
@@ -107,7 +129,9 @@ def _make_table(df: pd.DataFrame) -> str:
         # Ensure three columns
         test, result, details = (list(row) + ["", "", ""])[:3]
         # Skip possible extra header rows and empty rows
-        if (test == "Test" and result == "Result" and details == "Details") or not test.strip():
+        if (
+            test == "Test" and result == "Result" and details == "Details"
+        ) or not test.strip():
             continue
         col_class = "testname"
         test_td = f'<td class="{col_class}">{test}</td>'
@@ -115,9 +139,9 @@ def _make_table(df: pd.DataFrame) -> str:
             result_td = f'<td class="failed">{result}</td>'
             details_td = f'<td class="failuredetails">{details}</td>'
         else:
-            result_td = f'<td>{result}</td>'
-            details_td = f'<td>{details}</td>'
-        parts.append(f'<tr>{test_td}{result_td}{details_td}</tr>')
+            result_td = f"<td>{result}</td>"
+            details_td = f"<td>{details}</td>"
+        parts.append(f"<tr>{test_td}{result_td}{details_td}</tr>")
 
     return "<table class='testdetails'>" + "".join(parts) + "</table>"
 
@@ -128,18 +152,36 @@ def _make_table(df: pd.DataFrame) -> str:
     rows = df.values.tolist()
     # Handle "Incomplete Modules" table (header plus list of modules)
     if rows and (
-        str(rows[0][0]).replace('\xa0',' ').strip().lower() == "incomplete modules"
-        or (len(df.columns) == 1 and str(df.columns[0]).replace('\xa0',' ').strip().lower() == "incomplete modules")
+        str(rows[0][0]).replace("\xa0", " ").strip().lower() == "incomplete modules"
+        or (
+            len(df.columns) == 1
+            and str(df.columns[0]).replace("\xa0", " ").strip().lower()
+            == "incomplete modules"
+        )
     ):
         # Determine header text
-        header = rows[0][0] if str(rows[0][0]).replace('\xa0',' ').strip().lower() == "incomplete modules" else df.columns[0]
-        parts = [f"<tr><th colspan='3' class='module' style='text-align:left;background:#a5c639 !important;color:black;font-weight:bold;'>{header}</th></tr>"]
+        header = (
+            rows[0][0]
+            if str(rows[0][0]).replace("\xa0", " ").strip().lower()
+            == "incomplete modules"
+            else df.columns[0]
+        )
+        parts = [
+            f"<tr><th colspan='3' class='module' style='text-align:left;background:#a5c639 !important;color:black;font-weight:bold;'>{header}</th></tr>"
+        ]
         # Data rows start after header if header is in first row, otherwise all rows are data
-        data_start = 1 if str(rows[0][0]).replace('\xa0',' ').strip().lower() == "incomplete modules" else 0
+        data_start = (
+            1
+            if str(rows[0][0]).replace("\xa0", " ").strip().lower()
+            == "incomplete modules"
+            else 0
+        )
         for row in rows[data_start:]:
             module_name = str(row[0]) if row else ""
             if module_name:
-                parts.append(f"<tr><td colspan='3' class='module' style='background:#d4e9a9;color:black;'>{module_name}</td></tr>")
+                parts.append(
+                    f"<tr><td colspan='3' class='module' style='background:#d4e9a9;color:black;'>{module_name}</td></tr>"
+                )
         return f"<table class='incompletemodules' style='width:auto;'>{''.join(parts)}</table>"
     if not rows:
         return "<table class='testdetails'></table>"
@@ -152,7 +194,9 @@ def _make_table(df: pd.DataFrame) -> str:
         # Ensure three columns
         test, result, details = (list(row) + ["", "", ""])[:3]
         # Skip possible extra header rows and empty rows
-        if (test == "Test" and result == "Result" and details == "Details") or not test.strip():
+        if (
+            test == "Test" and result == "Result" and details == "Details"
+        ) or not test.strip():
             continue
         col_class = "testname"
         test_td = f'<td class="{col_class}">{test}</td>'
@@ -160,9 +204,9 @@ def _make_table(df: pd.DataFrame) -> str:
             result_td = f'<td class="failed">{result}</td>'
             details_td = f'<td class="failuredetails">{details}</td>'
         else:
-            result_td = f'<td>{result}</td>'
-            details_td = f'<td>{details}</td>'
-        parts.append(f'<tr>{test_td}{result_td}{details_td}</tr>')
+            result_td = f"<td>{result}</td>"
+            details_td = f"<td>{details}</td>"
+        parts.append(f"<tr>{test_td}{result_td}{details_td}</tr>")
 
     return "<table class='testdetails'>" + "".join(parts) + "</table>"
 
@@ -202,12 +246,13 @@ def _make_summary_table(source: Optional[Union[Path, str]]) -> List[str]:
     for i, col in enumerate(df.columns):
         header = col if i == 0 else ""
         header_cells.append(f'<th class="summary-header">{header}</th>')
-    rows.append('<tr>' + ''.join(header_cells) + '</tr>')
+    rows.append("<tr>" + "".join(header_cells) + "</tr>")
     for row in df.itertuples(index=False, name=None):
         cells = [f'<td class="summary-data">{cell}</td>' for cell in row]
-        rows.append('<tr>' + ''.join(cells) + '</tr>')
-    table_html = "<table class='summary'>" + ''.join(rows) + "</table>"
+        rows.append("<tr>" + "".join(cells) + "</tr>")
+    table_html = "<table class='summary'>" + "".join(rows) + "</table>"
     return [table_html]
+
 
 def _extract_testsummary_table(source: Optional[Union[Path, str]]) -> List[str]:
     """Extract a custom "testsummary" table.
@@ -230,22 +275,23 @@ def _extract_testsummary_table(source: Optional[Union[Path, str]]) -> List[str]:
         return []
     # Parse HTML with BeautifulSoup for more reliable table detection
     soup = bs4.BeautifulSoup(html, "html.parser")
-    for tbl in soup.find_all('table'):
+    for tbl in soup.find_all("table"):
         # Skip known summary or testdetails tables based on class attribute
-        cls = tbl.get('class') or []
+        cls = tbl.get("class") or []
         # Normalize class names to lower case for comparison
         lower_cls = [c.lower() for c in cls]
-        if any(c in ('summary', 'testdetails') for c in lower_cls):
+        if any(c in ("summary", "testdetails") for c in lower_cls):
             continue
         # If the table explicitly has a class indicating a test summary, accept it
-        if any('testsummary' in c for c in lower_cls):
+        if any("testsummary" in c for c in lower_cls):
             return [str(tbl)]
         # Check textual content for keywords indicating a test summary
-        text = tbl.get_text(separator=' ', strip=True).lower()
-        if 'test summary' in text or 'summary' in text:
+        text = tbl.get_text(separator=" ", strip=True).lower()
+        if "test summary" in text or "summary" in text:
             # Return the HTML string of the table
             return [str(tbl)]
     return []
+
 
 def _extract_version(fingerprint: str) -> str | None:
     # (unchanged)
@@ -256,15 +302,16 @@ def _extract_version(fingerprint: str) -> str | None:
     if not fingerprint:
         return None
     # Find the part after the fourth '/'
-    parts = fingerprint.split('/')
+    parts = fingerprint.split("/")
     if len(parts) < 5:
         return None
     candidate = parts[4]
     # Remove any trailing ':' and following text
-    candidate = candidate.split(':')[0]
+    candidate = candidate.split(":")[0]
     # Keep only digits (the version number)
     m = re.search(r"(\d+)", candidate)
     return m.group(1) if m else None
+
 
 def _extract_suite_from_summary(source: str) -> str | None:
     """Extract the suite identifier from a summary table.
@@ -296,7 +343,9 @@ def _extract_suite_from_summary(source: str) -> str | None:
                 return suite_cell
     return None
 
+
 from dataclasses import dataclass, field
+
 
 @dataclass
 class ReportConfig:
@@ -306,6 +355,7 @@ class ReportConfig:
     ``left_dfs`` and ``right_dfs`` are not included because they are positional
     inputs. ``diff_dfs`` is kept for compatibility but defaults to an empty list.
     """
+
     diff_dfs: List[pd.DataFrame] = field(default_factory=list)
     left_title: str = ""
     right_title: str = ""
@@ -334,8 +384,6 @@ def generate_report(
         left_summary_source = report_config.left_summary_source
         right_summary_source = report_config.right_summary_source
 
-
-    
     """Create a two‑column HTML view showing left & right tables.
 
     * ``left_dfs`` / ``right_dfs`` – DataFrames extracted from the two HTML files.
@@ -345,17 +393,20 @@ def generate_report(
     # Determine if single column mode (no right side)
     single_mode = not right_dfs and not right_summary_source
     # Build summary tables if sources provided
-    left_summary = _make_summary_table(left_summary_source) if left_summary_source else []
+    left_summary = (
+        _make_summary_table(left_summary_source) if left_summary_source else []
+    )
     # Determine Modules Total and Modules Done from the summary table (if present)
     modules_total = None
     modules_done = None
     if left_summary:
         # Combine all summary tables into a single HTML string for regex searches
-        summary_html = ''.join(left_summary)
+        summary_html = "".join(left_summary)
+
         # Helper to search for a numeric value given a label (e.g., 'Modules Total')
         def _search_value(label):
             # Try <th>label</th><td>value</td>
-            pattern = rf'<th[^>]*>\s*{label}\s*:?\s*</th>\s*<td[^>]*>\s*(\d+)\s*</td>'
+            pattern = rf"<th[^>]*>\s*{label}\s*:?\s*</th>\s*<td[^>]*>\s*(\d+)\s*</td>"
             m = re.search(pattern, summary_html, re.IGNORECASE | re.DOTALL)
             if m:
                 return int(m.group(1))
@@ -365,39 +416,50 @@ def generate_report(
             if m:
                 return int(m.group(1))
             # Generic fallback
-            pattern = rf'{label}[^<]*</[^>]*>\s*<td[^>]*>\s*(\d+)\s*</td>'
+            pattern = rf"{label}[^<]*</[^>]*>\s*<td[^>]*>\s*(\d+)\s*</td>"
             m = re.search(pattern, summary_html, re.IGNORECASE | re.DOTALL)
             if m:
                 return int(m.group(1))
             return None
-        modules_total = _search_value('Modules Total')
-        modules_done = _search_value('Modules Done')
-        log.debug(f"Modules Total parsed: {modules_total}, Modules Done parsed: {modules_done}, summary_html length: {len(summary_html)}")
+
+        modules_total = _search_value("Modules Total")
+        modules_done = _search_value("Modules Done")
+        log.debug(
+            f"Modules Total parsed: {modules_total}, Modules Done parsed: {modules_done}, summary_html length: {len(summary_html)}"
+        )
     # Conditional inclusion of testsummary
     testsummary = []
     if not left_dfs:
         # No testdetails; attempt to extract testsummary table
-        candidate = _extract_testsummary_table(left_summary_source) if left_summary_source else []
+        candidate = (
+            _extract_testsummary_table(left_summary_source)
+            if left_summary_source
+            else []
+        )
         # Ensure testsummary table uses the same styling as summary tables
         if candidate:
             # Use BeautifulSoup to add class and optional styles
             soup = bs4.BeautifulSoup(candidate[0], "html.parser")
-            table_tag = soup.find('table')
+            table_tag = soup.find("table")
             if table_tag:
                 # Add "summary" to class list if not present
-                existing_classes = table_tag.get('class') or []
-                if 'summary' not in existing_classes:
-                    existing_classes.append('summary')
-                table_tag['class'] = existing_classes
+                existing_classes = table_tag.get("class") or []
+                if "summary" not in existing_classes:
+                    existing_classes.append("summary")
+                table_tag["class"] = existing_classes
                 if single_mode:
                     # Add background style to header cells (th)
-                    for th in table_tag.find_all('th'):
-                        prev_style = th.get('style', '')
-                        th['style'] = (prev_style + ';' if prev_style else '') + 'background:#a5c639'
+                    for th in table_tag.find_all("th"):
+                        prev_style = th.get("style", "")
+                        th["style"] = (
+                            prev_style + ";" if prev_style else ""
+                        ) + "background:#a5c639"
                     # Add background style to data cells (td)
-                    for td in table_tag.find_all('td'):
-                        prev_style = td.get('style', '')
-                        td['style'] = (prev_style + ';' if prev_style else '') + 'background:#d4e9a9'
+                    for td in table_tag.find_all("td"):
+                        prev_style = td.get("style", "")
+                        td["style"] = (
+                            prev_style + ";" if prev_style else ""
+                        ) + "background:#d4e9a9"
             candidate = [str(soup)]
         log.debug(f"Testsummary candidate found: {bool(candidate)}")
         # Include only if Modules Total < 20 (and candidate exists)
@@ -408,31 +470,51 @@ def generate_report(
     # Fallback: if parsing failed, extract raw summary table via regex
     if not left_summary and left_summary_source:
         try:
-            raw_html = Path(left_summary_source).read_text(encoding='utf-8')
-            m = re.search(r"<table[^>]*class=['\"]summary['\"][^>]*>.*?</table>", raw_html, re.DOTALL)
+            raw_html = Path(left_summary_source).read_text(encoding="utf-8")
+            m = re.search(
+                r"<table[^>]*class=['\"]summary['\"][^>]*>.*?</table>",
+                raw_html,
+                re.DOTALL,
+            )
             if m:
                 left_summary = [m.group(0)]
         except Exception:
             pass
-    right_summary = _make_summary_table(right_summary_source) if right_summary_source else []
+    right_summary = (
+        _make_summary_table(right_summary_source) if right_summary_source else []
+    )
     if not right_summary and right_summary_source:
         try:
-            raw_html = Path(right_summary_source).read_text(encoding='utf-8')
-            m = re.search(r"<table[^>]*class=['\"]summary['\"][^>]*>.*?</table>", raw_html, re.DOTALL)
+            raw_html = Path(right_summary_source).read_text(encoding="utf-8")
+            m = re.search(
+                r"<table[^>]*class=['\"]summary['\"][^>]*>.*?</table>",
+                raw_html,
+                re.DOTALL,
+            )
             if m:
                 right_summary = [m.group(0)]
         except Exception:
             pass
     # Compute overlap statistics of test names between left and right
     # Extract only actual test names (contain a dot) from the first column of each testdetails DataFrame
-    left_tests = {str(val) for df in left_dfs for val in df.iloc[:, 0].astype(str).tolist() if '.' in str(val)}
-    right_tests = {str(val) for df in right_dfs for val in df.iloc[:, 0].astype(str).tolist() if '.' in str(val)}
+    left_tests = {
+        str(val)
+        for df in left_dfs
+        for val in df.iloc[:, 0].astype(str).tolist()
+        if "." in str(val)
+    }
+    right_tests = {
+        str(val)
+        for df in right_dfs
+        for val in df.iloc[:, 0].astype(str).tolist()
+        if "." in str(val)
+    }
     same_count = len(left_tests & right_tests)
     diff_count = len(left_tests ^ right_tests)
     overlap_summary = f"<table class='summary'><tr><th class='summary-header'>Same testnames</th><td class='summary-data'>{same_count}</td></tr><tr><th class='summary-header'>Degrade testnames</th><td class='summary-data' style='background:#fa5858;'>{diff_count}</td></tr></table>"
     # Compute module overlap statistics
-    left_modules = {str(df.iloc[0,0]) for df in left_dfs}
-    right_modules = {str(df.iloc[0,0]) for df in right_dfs}
+    left_modules = {str(df.iloc[0, 0]) for df in left_dfs}
+    right_modules = {str(df.iloc[0, 0]) for df in right_dfs}
     same_modules = len(left_modules & right_modules)
     degrade_modules = len(left_modules ^ right_modules)
     # In single‑column mode, compute "Incomplete modules" from the summary table
@@ -442,7 +524,9 @@ def generate_report(
         total_modules = modules_total
         done_modules = modules_done
         # Debug: Log extracted module counts
-        log.debug('Extracted total_modules=%s, done_modules=%s', total_modules, done_modules)
+        log.debug(
+            "Extracted total_modules=%s, done_modules=%s", total_modules, done_modules
+        )
         if total_modules is not None and done_modules is not None:
             incomplete = max(0, total_modules - done_modules)
         else:
@@ -455,17 +539,27 @@ def generate_report(
     left_version = _extract_version(left_title)
     right_version = _extract_version(right_title)
     # Determine suite name for chart ID uniqueness
-    left_suite = _extract_suite_from_summary(left_summary_source) if left_summary_source else None
-    right_suite = _extract_suite_from_summary(right_summary_source) if right_summary_source else None
+    left_suite = (
+        _extract_suite_from_summary(left_summary_source)
+        if left_summary_source
+        else None
+    )
+    right_suite = (
+        _extract_suite_from_summary(right_summary_source)
+        if right_summary_source
+        else None
+    )
     suite_name = left_suite or right_suite or "CTS"
     # Make a safe ID component (remove spaces and slashes)
-    safe_suite = suite_name.replace(' ', '_').replace('/', '_')
+    safe_suite = suite_name.replace(" ", "_").replace("/", "_")
     # Use a global counter to guarantee unique IDs across all generated reports
     # obtain a unique chart index
     chart_index = next(_chart_counter)
     # Build chart ID using suite name and counter (and versions if available)
     if left_version and right_version:
-        chart_id = f"moduleChart_{safe_suite}_{left_version}_{right_version}_{chart_index}"
+        chart_id = (
+            f"moduleChart_{safe_suite}_{left_version}_{right_version}_{chart_index}"
+        )
     else:
         chart_id = f"moduleChart_{safe_suite}_{chart_index}"
 
@@ -485,10 +579,20 @@ def generate_report(
     cleaned_module_names = []
     for name in degrade_module_names:
         # Strip common ABI prefixes and surrounding whitespace
-        cleaned = name.replace('armeabi-v7a ', '').replace('armeabi-v7a\u00a0', '').replace('arm64-v8a ', '').replace('arm64-v8a\u00a0', '').strip()
+        cleaned = (
+            name.replace("armeabi-v7a ", "")
+            .replace("armeabi-v7a\u00a0", "")
+            .replace("arm64-v8a ", "")
+            .replace("arm64-v8a\u00a0", "")
+            .strip()
+        )
         cleaned_module_names.append(cleaned)
     degrade_module_names = set(cleaned_module_names)
-    degrade_modules_list_html = "<div class='degrade-modules'><span class='suspicious-label'>Suspicious modules:</span><br>" + '<br>'.join(sorted(degrade_module_names)) + "</div>"
+    degrade_modules_list_html = (
+        "<div class='degrade-modules'><span class='suspicious-label'>Suspicious modules:</span><br>"
+        + "<br>".join(sorted(degrade_module_names))
+        + "</div>"
+    )
     # Gather module names from the "Incomplete modules" table (if present) for single‑column mode
     incomplete_module_names = []
     for df in left_dfs:
@@ -501,68 +605,106 @@ def generate_report(
                 name = str(val).strip()
                 if name:
                     # Strip common ABI prefixes and whitespace
-                    cleaned = name.replace('armeabi-v7a ', '').replace('armeabi-v7a\u00a0', '').replace('arm64-v8a ', '').replace('arm64-v8a\u00a0', '').strip()
+                    cleaned = (
+                        name.replace("armeabi-v7a ", "")
+                        .replace("armeabi-v7a\u00a0", "")
+                        .replace("arm64-v8a ", "")
+                        .replace("arm64-v8a\u00a0", "")
+                        .strip()
+                    )
                     incomplete_module_names.append(cleaned)
         # Case 2: single‑column DataFrame with column name as header
-        elif len(df.columns) == 1 and "incomplete modules" in str(df.columns[0]).strip().lower():
+        elif (
+            len(df.columns) == 1
+            and "incomplete modules" in str(df.columns[0]).strip().lower()
+        ):
             for val in df.iloc[:, 0]:
                 name = str(val).strip()
                 if name:
-                    cleaned = name.replace('armeabi-v7a ', '').replace('armeabi-v7a\u00a0', '').replace('arm64-v8a ', '').replace('arm64-v8a\u00a0', '').strip()
+                    cleaned = (
+                        name.replace("armeabi-v7a ", "")
+                        .replace("armeabi-v7a\u00a0", "")
+                        .replace("arm64-v8a ", "")
+                        .replace("arm64-v8a\u00a0", "")
+                        .strip()
+                    )
                     incomplete_module_names.append(cleaned)
-    incomplete_modules_list_html = "<div class='degrade-modules'><span class='suspicious-label'>Incomplete modules:</span><br>" + '<br>'.join(sorted(incomplete_module_names)) + "</div>"
+    incomplete_modules_list_html = (
+        "<div class='degrade-modules'><span class='suspicious-label'>Incomplete modules:</span><br>"
+        + "<br>".join(sorted(incomplete_module_names))
+        + "</div>"
+    )
     # Build CTS Diff title with version info if available
     left_version = _extract_version(left_title)
     right_version = _extract_version(right_title)
     # Extract suite name from the source html (left/right) if available
-    left_suite = _extract_suite_from_summary(left_summary_source) if left_summary_source else None
-    right_suite = _extract_suite_from_summary(right_summary_source) if right_summary_source else None
+    left_suite = (
+        _extract_suite_from_summary(left_summary_source)
+        if left_summary_source
+        else None
+    )
+    right_suite = (
+        _extract_suite_from_summary(right_summary_source)
+        if right_summary_source
+        else None
+    )
     suite_name = left_suite or right_suite or "CTS"
     # Build the diff title using versions (if any) and suite name
     # Horizontal divider label (suite name) will be placed above both columns
-    horizontal_divider_html = f"<div class='horizontal-divider'><span>{suite_name}</span></div>"
+    horizontal_divider_html = (
+        f"<div class='horizontal-divider'><span>{suite_name}</span></div>"
+    )
     if left_version and right_version:
         diff_title = f"v{left_version} Vs v{right_version} Diff"
     else:
         diff_title = "Diff"
         # Divider spanning both columns (placed above each column's summary)
-    divider_html = f"<br><div class='horizontal-divider'><span>{suite_name}</span></div>"
+    divider_html = (
+        f"<br><div class='horizontal-divider'><span>{suite_name}</span></div>"
+    )
     # Build summary section differently for single column mode (only left path provided)
     if single_mode:
         # In single-mode we omit the orange CTS Diff block and show the chart with the module summary on its right.
         left_summary_combined = (
-            divider_html +
-            "<div class='summary-wrapper'>"
-            "<div class='left-summary'>" + ''.join(left_summary) + "</div>"
-            "<div class='right-summary' style='display:flex; flex-direction:row; align-items:flex-start; gap:10px; visibility:visible; margin-top:1.5em;'>" +
-            "<div class='chart-container'>" + chart_html + chart_script + "</div>" +
-            degrade_modules_list_html +
-            incomplete_modules_list_html +
-            "</div>"
+            divider_html + "<div class='summary-wrapper'>"
+            "<div class='left-summary'>" + "".join(left_summary) + "</div>"
+            "<div class='right-summary' style='display:flex; flex-direction:row; align-items:flex-start; gap:10px; visibility:visible; margin-top:1.5em;'>"
+            + "<div class='chart-container'>"
+            + chart_html
+            + chart_script
+            + "</div>"
+            + degrade_modules_list_html
+            + incomplete_modules_list_html
+            + "</div>"
             "</div>"
         )
     else:
         left_summary_combined = (
-            divider_html +
-            "<div class='summary-wrapper'>"
-            "<div class='left-summary'>" + ''.join(left_summary) + "</div>"
+            divider_html + "<div class='summary-wrapper'>"
+            "<div class='left-summary'>" + "".join(left_summary) + "</div>"
             "<div class='right-summary'>"
             f"<div class='cts-diff'>{diff_title}</div>"
-            + chart_html + chart_script + degrade_modules_list_html +
-            "</div>"
+            + chart_html
+            + chart_script
+            + degrade_modules_list_html
+            + "</div>"
             "</div>"
         )
     # Right side keeps its summary tables (module summary removed)
     right_placeholder = "<div class='right-summary' style='visibility:hidden;'></div>"
     right_summary_combined = (
-        divider_html +
-        f"<div class='summary-wrapper'><div class='left-summary'>{''.join(right_summary)}</div>{right_placeholder}</div>"
+        divider_html
+        + f"<div class='summary-wrapper'><div class='left-summary'>{''.join(right_summary)}</div>{right_placeholder}</div>"
     )
 
     if single_mode:
         # Single column layout: use .single-col class, omit right side elements
         # Prepare optional file path display for single column mode
-        left_path_line = f"<div class='filepath'><a href='{left_summary_source}'>{left_summary_source}</a></div>" if left_summary_source else ""
+        left_path_line = (
+            f"<div class='filepath'><a href='{left_summary_source}'>{left_summary_source}</a></div>"
+            if left_summary_source
+            else ""
+        )
         parts = [
             HTML_HEADER,
             f"<div class='single-col'>",
@@ -575,8 +717,16 @@ def generate_report(
         ]
     else:
         # Double column layout: add file path links under each title
-        left_path_line = f"<div class='filepath'><a href='{left_summary_source}'>{left_summary_source}</a></div>" if left_summary_source else ""
-        right_path_line = f"<div class='filepath'><a href='{right_summary_source}'>{right_summary_source}</a></div>" if right_summary_source else ""
+        left_path_line = (
+            f"<div class='filepath'><a href='{left_summary_source}'>{left_summary_source}</a></div>"
+            if left_summary_source
+            else ""
+        )
+        right_path_line = (
+            f"<div class='filepath'><a href='{right_summary_source}'>{right_summary_source}</a></div>"
+            if right_summary_source
+            else ""
+        )
         parts = [
             HTML_HEADER,
             f"<div class='col'>",
@@ -597,8 +747,8 @@ def generate_report(
     # 写入文件一次性完成
     # Ensure parent directory exists
     # Determine default output filename based on mode if not overridden
-    default_name = Path('xts.html') if single_mode else Path('xts-diff.html')
-    if output_path == Path('diff.html'):
+    default_name = Path("xts.html") if single_mode else Path("xts-diff.html")
+    if output_path == Path("diff.html"):
         output_path = default_name
     # Ensure output directory exists
     output_path.parent.mkdir(parents=True, exist_ok=True)
@@ -608,9 +758,15 @@ def generate_report(
     except PermissionError:
         # Fallback to a writable location in /tmp
         fallback_dir = Path(tempfile.gettempdir()) / "diff_output"
-        fallback_dir.mkdir(parents=True, exist_ok=True)  # Ensure writable directory in /tmp
+        fallback_dir.mkdir(
+            parents=True, exist_ok=True
+        )  # Ensure writable directory in /tmp
         fallback_path = fallback_dir / f"{output_path.stem}.html"
-        logging.warning("Permission denied writing to %s; writing to %s instead.", output_path, fallback_path)
+        logging.warning(
+            "Permission denied writing to %s; writing to %s instead.",
+            output_path,
+            fallback_path,
+        )
         fallback_path.write_text("\n".join(parts), encoding="utf-8")
         final_path = fallback_path
     return final_path

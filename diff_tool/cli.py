@@ -21,7 +21,6 @@ from typing import List
 import sys
 
 
-
 from .extractor import extract_testdetails
 from .comparer import compare_tables, _table_to_df
 from .html_report import generate_report, HTML_HEADER, HTML_FOOTER
@@ -37,16 +36,17 @@ def _process_remote(left_url: str, subdirs: list[str], temp_dir: Path) -> list[P
     Returns a list of generated report file paths.
     """
     generated: list[Path] = []
-    base_url = left_url.rstrip('/') + '/'
+    base_url = left_url.rstrip("/") + "/"
     for sub in subdirs:
         # Try original sub name first, plus variant without underscore
         sub_variants = [sub]
-        if '_' in sub:
-            sub_variants.append(sub.replace('_', ''))
+        if "_" in sub:
+            sub_variants.append(sub.replace("_", ""))
         html_files: list[str] = []
         for sub_variant in sub_variants:
             sub_url = f"{base_url}{sub_variant}/"
             visited: set[str] = set()
+
             def _collect(url: str, depth: int = 0) -> list[str]:
                 if depth > 5:
                     return []
@@ -55,22 +55,29 @@ def _process_remote(left_url: str, subdirs: list[str], temp_dir: Path) -> list[P
                     resp = requests.get(url, timeout=10)
                     resp.raise_for_status()
                     soup = bs4.BeautifulSoup(resp.text, "html.parser")
-                    for a in soup.find_all('a', href=True):
-                        href = a['href']
-                        full = href if href.startswith('http') else url.rstrip('/') + '/' + href.lstrip('/')
-                        if href.endswith('test_result_failures_suite.html'):
+                    for a in soup.find_all("a", href=True):
+                        href = a["href"]
+                        full = (
+                            href
+                            if href.startswith("http")
+                            else url.rstrip("/") + "/" + href.lstrip("/")
+                        )
+                        if href.endswith("test_result_failures_suite.html"):
                             results.append(full)
-                        elif href.endswith('/') and full not in visited:
+                        elif href.endswith("/") and full not in visited:
                             visited.add(full)
                             results.extend(_collect(full, depth + 1))
                 except Exception:
                     pass
                 return results
+
             html_files = sorted(set(_collect(sub_url)))
             if html_files:
                 break
         if not html_files:
-            log.info(f"No 'test_result_failures_suite.html' found under remote sub '{sub}'.")
+            log.info(
+                f"No 'test_result_failures_suite.html' found under remote sub '{sub}'."
+            )
             continue
         for idx, left_path in enumerate(html_files, start=1):
             log.debug(f"Processing remote {left_path} for sub '{sub}' (part {idx})")
@@ -103,9 +110,11 @@ def _process_local(left_root: str, subdirs: list[str], temp_dir: Path) -> list[P
         if not sub_dir_path.is_dir():
             log.info(f"Subdirectory '{sub}' not found under {root_dir}, skipping.")
             continue
-        html_files = sorted(sub_dir_path.rglob('test_result_failures_suite.html'))
+        html_files = sorted(sub_dir_path.rglob("test_result_failures_suite.html"))
         if not html_files:
-            log.info(f"No 'test_result_failures_suite.html' under {sub_dir_path}, skipping.")
+            log.info(
+                f"No 'test_result_failures_suite.html' under {sub_dir_path}, skipping."
+            )
             continue
         for idx, html_path in enumerate(html_files, start=1):
             left_path = str(html_path)
@@ -136,8 +145,15 @@ def build_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(
         description="Compare 'testdetails' tables from two HTML sources across multiple subdirectories."
     )
-    parser.add_argument("left", help="Path or URL of the left root directory or HTML file")
-    parser.add_argument("right", nargs='?', default='', help="Path or URL of the right root directory or HTML file (optional). If omitted, single‑column mode is used.")
+    parser.add_argument(
+        "left", help="Path or URL of the left root directory or HTML file"
+    )
+    parser.add_argument(
+        "right",
+        nargs="?",
+        default="",
+        help="Path or URL of the right root directory or HTML file (optional). If omitted, single‑column mode is used.",
+    )
     parser.add_argument(
         "-s",
         "--subdirs",
@@ -198,6 +214,7 @@ def main(argv: List[str] | None = None) -> None:
         log.setLevel(logging.DEBUG)
     else:
         log.setLevel(logging.INFO)
+
     # Resolve directories to specific HTML file if needed
     def _resolve(arg: str, subdir: str = "") -> str:
         """Resolve *arg* to a concrete HTML file path.
@@ -210,12 +227,13 @@ def main(argv: List[str] | None = None) -> None:
         """
         if arg.startswith(("http://", "https://")):
             # URL handling – if it ends with a slash treat it as a directory
-            if arg.endswith('/'):
+            if arg.endswith("/"):
+
                 def _search(url, depth=0):
                     if depth > 3:
                         return None
                     # Try conventional file name first
-                    cand = url.rstrip('/') + "/test_result_failures_suite.html"
+                    cand = url.rstrip("/") + "/test_result_failures_suite.html"
                     try:
                         resp = requests.head(cand, timeout=10)
                         if resp.status_code == 200:
@@ -227,33 +245,42 @@ def main(argv: List[str] | None = None) -> None:
                         resp = requests.get(url, timeout=10)
                         resp.raise_for_status()
                         soup = bs4.BeautifulSoup(resp.text, "html.parser")
-                        for a in soup.find_all('a', href=True):
-                            href = a['href']
-                            if href.lower().endswith('.html'):
-                                full_url = href if href.startswith('http') else url.rstrip('/') + '/' + href.lstrip('/')
+                        for a in soup.find_all("a", href=True):
+                            href = a["href"]
+                            if href.lower().endswith(".html"):
+                                full_url = (
+                                    href
+                                    if href.startswith("http")
+                                    else url.rstrip("/") + "/" + href.lstrip("/")
+                                )
                                 try:
                                     page_resp = requests.get(full_url, timeout=10)
-                                    if page_resp.ok and 'testdetails' in page_resp.text:
+                                    if page_resp.ok and "testdetails" in page_resp.text:
                                         return full_url
                                 except Exception:
                                     pass
                                 # fallback to first html link
-                                if href.startswith('http'):
+                                if href.startswith("http"):
                                     return href
                                 else:
-                                    base = url.rstrip('/') + '/'
-                                    return base + href.lstrip('/')
+                                    base = url.rstrip("/") + "/"
+                                    return base + href.lstrip("/")
                         # recurse into sub‑directories
-                        for a in soup.find_all('a', href=True):
-                            href = a['href']
-                            if href.endswith('/'):
-                                sub_url = href if href.startswith('http') else url.rstrip('/') + '/' + href.lstrip('/')
+                        for a in soup.find_all("a", href=True):
+                            href = a["href"]
+                            if href.endswith("/"):
+                                sub_url = (
+                                    href
+                                    if href.startswith("http")
+                                    else url.rstrip("/") + "/" + href.lstrip("/")
+                                )
                                 found = _search(sub_url, depth + 1)
                                 if found:
                                     return found
                     except Exception:
                         pass
                     return None
+
                 found_url = _search(arg)
                 if found_url:
                     return found_url
@@ -263,25 +290,28 @@ def main(argv: List[str] | None = None) -> None:
             # If a subdir name is provided (dual‑column mode), look inside it
             search_root = p / subdir if subdir else p
             # Prefer the conventional file name
-            for file in search_root.rglob('test_result_failures_suite.html'):
+            for file in search_root.rglob("test_result_failures_suite.html"):
                 if file.is_file():
                     return str(file)
             # Fallback: first *.html file under the root
-            for file in search_root.rglob('*.html'):
+            for file in search_root.rglob("*.html"):
                 if file.is_file():
                     return str(file)
         return arg
+
     # ----- Multi‑subdir processing -----
 
     # If only left path provided, we operate in single‑column mode (no comparison)
     single_mode = not args.right
-    subdirs = [s.strip() for s in args.subdirs.split(',') if s.strip()]
+    subdirs = [s.strip() for s in args.subdirs.split(",") if s.strip()]
     temp_dir = Path.cwd() / "tmp_diff_reports"
     temp_dir.mkdir(parents=True, exist_ok=True)
     generated_files = []
     # ---------- Recursive processing (single‑column mode) ----------
     # ---------- Recursive processing (single‑column mode) ----------
-    if args.recursive or (single_mode and (Path(args.left).is_dir() or is_url(args.left))):
+    if args.recursive or (
+        single_mode and (Path(args.left).is_dir() or is_url(args.left))
+    ):
         # Choose remote or local handling based on left argument type
         if is_url(args.left):
             generated_files.extend(_process_remote(args.left, subdirs, temp_dir))
@@ -292,8 +322,16 @@ def main(argv: List[str] | None = None) -> None:
     # Continue with the original loop (may be empty)
     for sub in subdirs:
         # Resolve left/right paths for this subdirectory
-        left_candidate = (Path(args.left) / sub if not args.left.startswith(("http://", "https://")) else f"{args.left.rstrip('/')}/{sub}/")
-        right_candidate = (Path(args.right) / sub if args.right and not args.right.startswith(("http://", "https://")) else (f"{args.right.rstrip('/')}/{sub}/" if args.right else ""))
+        left_candidate = (
+            Path(args.left) / sub
+            if not args.left.startswith(("http://", "https://"))
+            else f"{args.left.rstrip('/')}/{sub}/"
+        )
+        right_candidate = (
+            Path(args.right) / sub
+            if args.right and not args.right.startswith(("http://", "https://"))
+            else (f"{args.right.rstrip('/')}/{sub}/" if args.right else "")
+        )
         left_path = _resolve(str(left_candidate), sub)
         right_path = _resolve(str(right_candidate), sub) if args.right else ""
         log.debug(f"Processing subdir '{sub}': left={left_path}, right={right_path}")
@@ -307,7 +345,9 @@ def main(argv: List[str] | None = None) -> None:
             right_title, right_tables = "", []
         if not left_tables and not right_tables:
             # No testdetails in either side, but we still want to generate a diff report with summary and version info.
-            log.info(f"No testdetails for subdir '{sub}', generating summary-only diff.")
+            log.info(
+                f"No testdetails for subdir '{sub}', generating summary-only diff."
+            )
         elif not left_tables or not right_tables:
             # One side missing testdetails – still generate report with whatever tables are present.
             log.info(f"Partial testdetails for subdir '{sub}'.")
@@ -319,9 +359,9 @@ def main(argv: List[str] | None = None) -> None:
             diffs.append(diff_df)
         # Preserve extra tables
         if len(left_tables) > len(right_tables):
-            left_dfs.extend(_table_to_df(t) for t in left_tables[len(right_tables):])
+            left_dfs.extend(_table_to_df(t) for t in left_tables[len(right_tables) :])
         elif len(right_tables) > len(left_tables):
-            right_dfs.extend(_table_to_df(t) for t in right_tables[len(left_tables):])
+            right_dfs.extend(_table_to_df(t) for t in right_tables[len(left_tables) :])
         out_path = temp_dir / f"{sub}-diff.html"
         generate_report(
             left_dfs,
@@ -343,7 +383,7 @@ def main(argv: List[str] | None = None) -> None:
     base_file = None
     other_files = []
     for f in generated_files:
-        if f.name.startswith('cts-'):
+        if f.name.startswith("cts-"):
             base_file = f
         else:
             other_files.append(f)
@@ -351,6 +391,7 @@ def main(argv: List[str] | None = None) -> None:
         # Fallback: use first generated file as base
         base_file = generated_files[0]
         other_files = generated_files[1:]
+
     # Merge reports by stacking each report's own <div class='container'> block vertically.
     # Remove the common HTML_HEADER and HTML_FOOTER from each generated report, keeping the inner container.
     def extract_container(html: str) -> str:
@@ -384,7 +425,6 @@ def main(argv: List[str] | None = None) -> None:
     final_path.write_text(final_html, encoding="utf-8")
     log.info("Merged diff report written to %s", final_path)
     return
-
 
 
 if __name__ == "__main__":
