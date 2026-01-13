@@ -7,7 +7,7 @@
  - [v] 用 `BeautifulSoup` 替代字符串 `re.sub` 修改 table class。
  - [v] 将全局 `_chart_counter` 改为 `uuid.uuid4()` 或 `itertools.count()`。
  - [ ] 把 CSS/HTML 模板抽离到独立文件（如 `templates/report.html`）并使用 `jinja2` 渲染。
- - [ ] 为 `generate_report` 添加关键字参数包装的 `ReportConfig` dataclass。
+ - [v] 为 `generate_report` 添加关键字参数包装的 `ReportConfig` dataclass。
  - [ ] 添加 `tests/`，编写至少 10 条单元测试覆盖数据提取、表格生成与差异统计。
  - [ ] 更新 `requirements.txt`，锁定依赖版本。
  - [ ] 编写 `README.md`，提供安装、CLI 示例及常见错误说明。

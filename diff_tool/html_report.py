@@ -296,6 +296,24 @@ def _extract_suite_from_summary(source: str) -> str | None:
                 return suite_cell
     return None
 
+from dataclasses import dataclass, field
+
+@dataclass
+class ReportConfig:
+    """Configuration for generate_report.
+
+    All fields correspond to the keyword arguments of ``generate_report``.
+    ``left_dfs`` and ``right_dfs`` are not included because they are positional
+    inputs. ``diff_dfs`` is kept for compatibility but defaults to an empty list.
+    """
+    diff_dfs: List[pd.DataFrame] = field(default_factory=list)
+    left_title: str = ""
+    right_title: str = ""
+    output_path: Path = Path("diff.html")
+    left_summary_source: Optional[Union[Path, str]] = None
+    right_summary_source: Optional[Union[Path, str]] = None
+
+
 def generate_report(
     left_dfs: List[pd.DataFrame],
     right_dfs: List[pd.DataFrame] = [],
@@ -305,7 +323,16 @@ def generate_report(
     output_path: Path = Path("diff.html"),
     left_summary_source: Optional[Union[Path, str]] = None,
     right_summary_source: Optional[Union[Path, str]] = None,
+    report_config: Optional[ReportConfig] = None,
 ) -> Path:
+    # If a ReportConfig is provided, override individual arguments
+    if report_config is not None:
+        diff_dfs = report_config.diff_dfs
+        left_title = report_config.left_title
+        right_title = report_config.right_title
+        output_path = report_config.output_path
+        left_summary_source = report_config.left_summary_source
+        right_summary_source = report_config.right_summary_source
 
 
     
