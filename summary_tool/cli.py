@@ -1,5 +1,5 @@
 #!/usr/bin/env python
-"""Command‑line interface for the *diff_tool* package.
+"""Command‑line interface for the *summary_tool* package.
 
 The tool compares ``testdetails`` tables extracted from two HTML sources –
 either local files or remote URLs – and produces an HTML diff report.
@@ -183,7 +183,7 @@ def build_parser() -> argparse.ArgumentParser:
 
 
 def main(argv: List[str] | None = None) -> None:
-    """Entry point for the ``diff_tool`` CLI.
+    """Entry point for the ``summary_tool`` CLI.
 
     Parameters
     ----------
@@ -203,7 +203,7 @@ def main(argv: List[str] | None = None) -> None:
     # Logging configuration is left to the caller. The library uses
     # module‑level ``log = logging.getLogger(__name__)``. If a custom level
     # is desired, the invoking program can configure the root logger (or the
-    # ``diff_tool`` logger) before calling ``main``.
+    # ``summary_tool`` logger) before calling ``main``.
     # Example: ``logging.basicConfig(level=logging.DEBUG)``
     # Ensure at least one handler exists so INFO logs are visible by default.
     if not logging.getLogger().hasHandlers():

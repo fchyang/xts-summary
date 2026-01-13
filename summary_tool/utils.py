@@ -1,4 +1,4 @@
-"""Utility functions for diff_tool package."""
+"""Utility functions for summary_tool package."""
 
 
 def is_url(s: str) -> bool:
