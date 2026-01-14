@@ -326,18 +326,37 @@ def main(argv: List[str] | None = None) -> None:
     # Continue with the original loop (may be empty)
     for sub in subdirs:
         # Resolve left/right paths for this subdirectory
-        left_candidate = (
-            Path(args.left) / sub
-            if not args.left.startswith(("http://", "https://"))
-            else f"{args.left.rstrip('/')}/{sub}/"
-        )
-        right_candidate = (
-            Path(args.right) / sub
-            if args.right and not args.right.startswith(("http://", "https://"))
-            else (f"{args.right.rstrip('/')}/{sub}/" if args.right else "")
-        )
-        left_path = _resolve(str(left_candidate), sub)
-        right_path = _resolve(str(right_candidate), sub) if args.right else ""
+        # Build candidate URLs/paths for the subdirectory. Some servers use 'tv_ts' while others use 'tvts'.
+        def _candidate(base: str, sub_name: str) -> str:
+            """Return a URL/path string for *sub_name* under *base*.
+
+            Handles both underscore and non‑underscore variants.
+            """
+            if base.startswith(("http://", "https://")):
+                return f"{base.rstrip('/')}/{sub_name}/"
+            else:
+                return str(Path(base) / sub_name)
+
+        def _resolve_with_variants(base: str, sub_name: str) -> str:
+            """Try to resolve the subdirectory, falling back to the variant without underscore.
+
+            Returns the resolved HTML path or the original candidate if nothing found.
+            """
+            # First try the original sub_name
+            cand = _candidate(base, sub_name)
+            resolved = _resolve(str(cand), sub_name)
+            # If resolution didn't change (i.e., no HTML found) and the sub contains an underscore,
+            # try the name without the underscore.
+            if resolved == str(cand) and "_" in sub_name:
+                alt_name = sub_name.replace("_", "")
+                alt_cand = _candidate(base, alt_name)
+                alt_resolved = _resolve(str(alt_cand), alt_name)
+                if alt_resolved != str(alt_cand):
+                    return alt_resolved
+            return resolved
+
+        left_path = _resolve_with_variants(args.left, sub)
+        right_path = _resolve_with_variants(args.right, sub) if args.right else ""
         log.debug(f"Processing subdir '{sub}': left={left_path}, right={right_path}")
 
         # Extract tables and titles
