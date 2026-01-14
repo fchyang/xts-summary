@@ -137,7 +137,9 @@ def _make_table(df: pd.DataFrame) -> str:
         test_td = f'<td class="{col_class}">{test}</td>'
         if result.strip().lower() == "fail":
             result_td = f'<td class="failed">{result}</td>'
-            details_td = f'<td class="failuredetails">{details}</td>'
+            # Truncate failure details to 350 characters for display
+            display_details = details if len(details) <= 350 else details[:350]
+            details_td = f'<td class="failuredetails">{display_details}</td>'
         else:
             result_td = f"<td>{result}</td>"
             details_td = f"<td>{details}</td>"
@@ -202,7 +204,9 @@ def _make_table(df: pd.DataFrame) -> str:
         test_td = f'<td class="{col_class}">{test}</td>'
         if result.strip().lower() == "fail":
             result_td = f'<td class="failed">{result}</td>'
-            details_td = f'<td class="failuredetails">{details}</td>'
+            # Truncate failure details to 350 characters for display
+            display_details = details if len(details) <= 350 else details[:350]
+            details_td = f'<td class="failuredetails">{display_details}</td>'
         else:
             result_td = f"<td>{result}</td>"
             details_td = f"<td>{details}</td>"

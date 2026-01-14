@@ -6,8 +6,8 @@ readme = "README.md"
 requires-python = ">=3.11"
 license = {text = "MIT"}
 authors = [
-    {name = "chance_fan", email = "chance_fan@realsil.com.cn"},
-    {name = "Continue CLI", email = "noreply@continue.dev"}
+    {name = "Continue CLI", email = "noreply@continue.dev"},
+    {name = "fchyang", email = "fchyang@126.com"}
 ]
 # List runtime dependencies here (or keep empty and use requirements.txt)
 dependencies = []
