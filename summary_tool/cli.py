@@ -31,9 +31,6 @@ log = logging.getLogger(__name__)
 
 
 def _sub_variants(name: str) -> list[str]:
-    # Helper to generate candidate URL/path strings for a subdirectory name
-    # (separate from the yet‑to‑be‑defined _candidate function)
-    ...
     """Return a list of possible name variants for a subdirectory.
 
     Handles:
@@ -51,6 +48,17 @@ def _sub_variants(name: str) -> list[str]:
         variants.update({with_us, with_us.lower(), with_us.upper(), with_us.title()})
     # filter out empty strings
     return [v for v in variants if v]
+
+def _candidate(base: str, sub_name: str) -> str:
+    """Return a URL or filesystem path for *sub_name* under *base*.
+
+    Handles both HTTP(S) URLs and local paths.
+    """
+    if base.startswith(("http://", "https://")):
+        return f"{base.rstrip('/')}/{sub_name}/"
+    else:
+        return str(Path(base) / sub_name)
+
 
 def _process_remote(left_url: str, subdirs: list[str], temp_dir: Path) -> list[Path]:
     """Process remote HTTP directory.
@@ -342,7 +350,6 @@ def main(argv: List[str] | None = None) -> None:
     temp_dir.mkdir(parents=True, exist_ok=True)
     generated_files = []
     # ---------- Recursive processing (single‑column mode) ----------
-    # ---------- Recursive processing (single‑column mode) ----------
     if args.recursive or (
         single_mode and (Path(args.left).is_dir() or is_url(args.left))
     ):
@@ -357,15 +364,6 @@ def main(argv: List[str] | None = None) -> None:
     for sub in subdirs:
         # Resolve left/right paths for this subdirectory
         # Build candidate URLs/paths for the subdirectory, handling case and underscore variants.
-        def _candidate(base: str, sub_name: str) -> str:
-            """Return a URL/path string for *sub_name* under *base*.
-
-            Handles both underscore and non‑underscore variants.
-            """
-            if base.startswith(("http://", "https://")):
-                return f"{base.rstrip('/')}/{sub_name}/"
-            else:
-                return str(Path(base) / sub_name)
 
         def _resolve_with_all_variants(base: str, sub_name: str) -> str:
             """Try all case/underscore variants of *sub_name*.
