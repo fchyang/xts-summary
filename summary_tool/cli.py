@@ -175,6 +175,12 @@ def _process_local(left_root: str, subdirs: list[str], temp_dir: Path) -> list[P
 
 
 def build_parser() -> argparse.ArgumentParser:
+    """Create and return the argument parser, including a ``--version`` flag.
+
+    The version string is taken from :mod:`summary_tool.__version__`, which
+    mirrors the version declared in *pyproject.toml*.  ``argparse`` handles the
+    ``--version`` output automatically via ``action='version'``.
+    """
     """Create argument parser.
     Supports providing two HTML files/URLs (left & right) for comparison, or
     a single directory (left) with ``--recursive`` to automatically locate all
@@ -217,6 +223,16 @@ def build_parser() -> argparse.ArgumentParser:
         help="(可选)在单列模式下强制递归搜索 `test_result_failures_suite.html`。若省略，若左路径是目录且包含此类文件，仍会自动递归。",
     )
 
+    # ----- version flag -----
+    from . import __version__
+    parser.add_argument(
+        "-V",
+        "--version",
+        action="version",
+        version=f"summary_tool {__version__}",
+        help="Show the tool's version and exit.",
+    )
+    # ----- end version flag -----
     return parser
 
 
