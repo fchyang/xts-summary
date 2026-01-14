@@ -30,6 +30,28 @@ from .utils import is_url
 log = logging.getLogger(__name__)
 
 
+def _sub_variants(name: str) -> list[str]:
+    # Helper to generate candidate URL/path strings for a subdirectory name
+    # (separate from the yet‑to‑be‑defined _candidate function)
+    ...
+    """Return a list of possible name variants for a subdirectory.
+
+    Handles:
+    * original case
+    * lower / upper / title case
+    * underscore present or absent (e.g., 'tv_ts' ↔ 'tvts')
+    """
+    variants: set[str] = {name, name.lower(), name.upper(), name.title()}
+    if "_" in name:
+        no_us = name.replace("_", "")
+        variants.update({no_us, no_us.lower(), no_us.upper(), no_us.title()})
+    else:
+        # also try adding an underscore variant just in case
+        with_us = name + "_"
+        variants.update({with_us, with_us.lower(), with_us.upper(), with_us.title()})
+    # filter out empty strings
+    return [v for v in variants if v]
+
 def _process_remote(left_url: str, subdirs: list[str], temp_dir: Path) -> list[Path]:
     """Process remote HTTP directory.
 
@@ -38,10 +60,8 @@ def _process_remote(left_url: str, subdirs: list[str], temp_dir: Path) -> list[P
     generated: list[Path] = []
     base_url = left_url.rstrip("/") + "/"
     for sub in subdirs:
-        # Try original sub name first, plus variant without underscore
-        sub_variants = [sub]
-        if "_" in sub:
-            sub_variants.append(sub.replace("_", ""))
+        # Generate all case/underscore variants for the subdirectory name
+        sub_variants = _sub_variants(sub)
         html_files: list[str] = []
         for sub_variant in sub_variants:
             sub_url = f"{base_url}{sub_variant}/"
@@ -106,16 +126,26 @@ def _process_local(left_root: str, subdirs: list[str], temp_dir: Path) -> list[P
     generated: list[Path] = []
     root_dir = Path(left_root)
     for sub in subdirs:
-        sub_dir_path = root_dir / sub
-        if not sub_dir_path.is_dir():
-            log.info(f"Subdirectory '{sub}' not found under {root_dir}, skipping.")
+        # Generate all case/underscore variants for the subdirectory name
+        candidates = [_candidate(str(root_dir), v) for v in _sub_variants(sub)]
+        sub_dir_path = None
+        for cand in candidates:
+            p = Path(cand)
+            if p.is_dir():
+                sub_dir_path = p
+                break
+        if sub_dir_path is None:
+            log.info(f"Subdirectory '{sub}' not found (tried variants) under {root_dir}, skipping.")
             continue
         html_files = sorted(sub_dir_path.rglob("test_result_failures_suite.html"))
         if not html_files:
-            log.info(
-                f"No 'test_result_failures_suite.html' under {sub_dir_path}, skipping."
-            )
-            continue
+            # fallback to any html file if specific suite not found
+            html_files = sorted(sub_dir_path.rglob("*.html"))
+            if not html_files:
+                log.info(
+                    f"No HTML files found under {sub_dir_path}, skipping."
+                )
+                continue
         for idx, html_path in enumerate(html_files, start=1):
             left_path = str(html_path)
             log.debug(f"Processing {left_path} for sub '{sub}' (part {idx})")
@@ -326,7 +356,7 @@ def main(argv: List[str] | None = None) -> None:
     # Continue with the original loop (may be empty)
     for sub in subdirs:
         # Resolve left/right paths for this subdirectory
-        # Build candidate URLs/paths for the subdirectory. Some servers use 'tv_ts' while others use 'tvts'.
+        # Build candidate URLs/paths for the subdirectory, handling case and underscore variants.
         def _candidate(base: str, sub_name: str) -> str:
             """Return a URL/path string for *sub_name* under *base*.
 
@@ -337,26 +367,22 @@ def main(argv: List[str] | None = None) -> None:
             else:
                 return str(Path(base) / sub_name)
 
-        def _resolve_with_variants(base: str, sub_name: str) -> str:
-            """Try to resolve the subdirectory, falling back to the variant without underscore.
+        def _resolve_with_all_variants(base: str, sub_name: str) -> str:
+            """Try all case/underscore variants of *sub_name*.
 
-            Returns the resolved HTML path or the original candidate if nothing found.
+            Returns the first resolved HTML path; if none found, returns the original base (so later code may still attempt a direct URL).
             """
-            # First try the original sub_name
-            cand = _candidate(base, sub_name)
-            resolved = _resolve(str(cand), sub_name)
-            # If resolution didn't change (i.e., no HTML found) and the sub contains an underscore,
-            # try the name without the underscore.
-            if resolved == str(cand) and "_" in sub_name:
-                alt_name = sub_name.replace("_", "")
-                alt_cand = _candidate(base, alt_name)
-                alt_resolved = _resolve(str(alt_cand), alt_name)
-                if alt_resolved != str(alt_cand):
-                    return alt_resolved
-            return resolved
+            for variant in _sub_variants(sub_name):
+                cand = _candidate(base, variant)
+                resolved = _resolve(str(cand), variant)
+                # If resolution succeeded (i.e., returned something different from the candidate), use it.
+                if resolved != str(cand):
+                    return resolved
+            # Fallback – try the original name without variants
+            return _resolve(str(_candidate(base, sub_name)), sub_name)
 
-        left_path = _resolve_with_variants(args.left, sub)
-        right_path = _resolve_with_variants(args.right, sub) if args.right else ""
+        left_path = _resolve_with_all_variants(args.left, sub)
+        right_path = _resolve_with_all_variants(args.right, sub) if args.right else ""
         log.debug(f"Processing subdir '{sub}': left={left_path}, right={right_path}")
 
         # Extract tables and titles
