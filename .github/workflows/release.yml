@@ -1,0 +1,100 @@
+name: Release
+
+# When a tag that follows the pattern vMAJOR.MINOR.PATCH is pushed, trigger the workflow
+on:
+  push:
+    tags:
+      - 'v*.*.*'   # e.g., v1.2.3, v0.9.0
+
+jobs:
+  build_and_release:
+    runs-on: ubuntu-latest
+    permissions:
+      # Required to create a release and upload assets
+      contents: write
+      packages: write
+
+    steps:
+      # -------------------------------------------------
+      # 1️⃣ Checkout the repository
+      # -------------------------------------------------
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      # -------------------------------------------------
+      # 2️⃣ Set up Python (using 3.11 here – adjust if needed)
+      # -------------------------------------------------
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+          cache: "pip"
+
+      # -------------------------------------------------
+      # 3️⃣ Install build tools (build + twine)
+      # -------------------------------------------------
+      - name: Install build dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install build twine
+
+      # -------------------------------------------------
+      # 4️⃣ Build the distribution (sdist + wheel)
+      # -------------------------------------------------
+      - name: Build distribution
+        run: |
+          python -m build   # produces ./dist/*.tar.gz and ./dist/*.whl
+
+      # -------------------------------------------------
+      # 5️⃣ (Optional) Run tests / lint to ensure the package works
+      # -------------------------------------------------
+      # - name: Run tests
+      #   run: |
+      #     pip install -e .
+      #     pytest
+
+      # -------------------------------------------------
+      # 6️⃣ Create (or update) a GitHub Release
+      # -------------------------------------------------
+      - name: Create GitHub Release
+        id: create_release
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: ${{ github.ref_name }}
+          name: Release ${{ github.ref_name }}
+          body: |
+            自动生成的 Release，包含以下构建产物：
+            - Python source distribution (`.tar.gz`)
+            - Built wheel (`.whl`)
+
+            <!-- Add changelog or notes here -->
+          draft: false
+          prerelease: false
+
+      # -------------------------------------------------
+      # 7️⃣ Upload the built artifacts to the Release
+      # -------------------------------------------------
+      - name: Upload source distribution
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: ${{ github.ref_name }}
+          files: dist/*.tar.gz
+
+      - name: Upload wheel
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: ${{ github.ref_name }}
+          files: dist/*.whl
+
+      # -------------------------------------------------
+      # 8️⃣ (Optional) Publish to PyPI
+      # -------------------------------------------------
+      # If you also want to push the package to PyPI, add a secret named PYPI_API_TOKEN
+      # in the repository settings, then uncomment the following step.
+      #
+      #- name: Publish to PyPI
+      #   env:
+      #     TWINE_USERNAME: __token__
+      #     TWINE_PASSWORD: 
+      #   run: |
+      #     twine upload dist/*.whl
