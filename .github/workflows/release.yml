@@ -54,10 +54,9 @@ jobs:
       #     pytest
 
       # -------------------------------------------------
-      # 6️⃣ Create (or update) a GitHub Release
+      # 6️⃣ Create (or update) Release & upload assets in one step
       # -------------------------------------------------
-      - name: Create GitHub Release
-        id: create_release
+      - name: Create Release and Upload Assets
         uses: softprops/action-gh-release@v2
         with:
           tag_name: ${{ github.ref_name }}
@@ -70,24 +69,9 @@ jobs:
             <!-- Add changelog or notes here -->
           draft: false
           prerelease: false
-          skip_existing: true
-
-      # -------------------------------------------------
-      # 7️⃣ Upload the built artifacts to the Release
-      # -------------------------------------------------
-      - name: Upload source distribution
-        uses: softprops/action-gh-release@v2
-        with:
-          tag_name: ${{ github.ref_name }}
-          files: dist/*.tar.gz
-          overwrite: true
-
-      - name: Upload wheel
-        uses: softprops/action-gh-release@v2
-        with:
-          tag_name: ${{ github.ref_name }}
-          files: dist/*.whl
-          overwrite: true
+          make_latest: true
+          files: dist/*.tar.gz,dist/*.whl
+          overwrite_files: true
 
       # -------------------------------------------------
       # 8️⃣ (Optional) Publish to PyPI
