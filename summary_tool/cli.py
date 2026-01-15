@@ -222,6 +222,12 @@ def build_parser() -> argparse.ArgumentParser:
         action="store_true",
         help="(可选)在单列模式下强制递归搜索 `test_result_failures_suite.html`。若省略，若左路径是目录且包含此类文件，仍会自动递归。",
     )
+    parser.add_argument(
+        "-i",
+        "--interactive",
+        action="store_true",
+        help="交互式模式：列出远程根目录下的子目录供用户选择，一个则生成单列报告，两个则生成对比报告。",
+    )
 
     # ----- version flag -----
     from . import __version__
@@ -269,7 +275,71 @@ def main(argv: List[str] | None = None) -> None:
     else:
         log.setLevel(logging.INFO)
 
-    # Resolve directories to specific HTML file if needed
+    # Interactive selection handling
+    if args.interactive:
+        # Only applicable when left argument is a URL (base directory)
+        if not is_url(args.left):
+            log.error("--interactive 只能在提供远程 URL 作为左路径时使用。")
+            sys.exit(1)
+        base_url = args.left  # 保存原始根 URL 供后续构造子目录路径
+        # Fetch subdirectory list from remote URL
+        def _list_remote_subdirs(base: str) -> list[str]:
+            try:
+                resp = requests.get(base, timeout=10)
+                resp.raise_for_status()
+                soup = bs4.BeautifulSoup(resp.text, "html.parser")
+                subs: list[str] = []
+                for a in soup.find_all("a", href=True):
+                    href = a["href"]
+                    # consider only directories (ending with '/') and ignore parent links
+                    if href.endswith("/") and href not in ("../", "./"):
+                        name = href.rstrip("/")
+                        subs.append(name)
+                return subs
+            except Exception as e:
+                log.error("获取远程子目录列表失败: %s", e)
+                return []
+        remote_subs = _list_remote_subdirs(base_url)
+        if not remote_subs:
+            log.error("未在远程路径下找到子目录")
+            sys.exit(1)
+        print("在远程路径下发现以下子目录:")
+        for idx, name in enumerate(remote_subs, start=1):
+            print(f"  {idx}. {name}")
+        sel = input("请输入目录编号（单个或用逗号分隔两个）: ")
+        chosen_idxs = [s.strip() for s in sel.split(',') if s.strip().isdigit()]
+        if not chosen_idxs:
+            log.error("未选择有效的目录编号")
+            sys.exit(1)
+        chosen = []
+        for ci in chosen_idxs:
+            i = int(ci) - 1
+            if i < 0 or i >= len(remote_subs):
+                log.error("选择的编号超出范围: %s", ci)
+                sys.exit(1)
+            chosen.append(remote_subs[i])
+        if len(chosen) == 1:
+            args.left = _candidate(base_url, chosen[0])
+            args.right = ""
+        elif len(chosen) == 2:
+            args.left = _candidate(base_url, chosen[0])
+            args.right = _candidate(base_url, chosen[1])
+        else:
+            log.error("一次只能选择最多两个目录进行报告生成")
+            sys.exit(1)
+        # 为了递归子目录中的各类报告，保持递归模式并使用默认子目录列表
+        args.recursive = True
+        args.subdirs = 'cts,ctsongsi,gts,vts,tv_ts,sts'
+        # 保存供后面使用的选择列表（可选）
+        chosen_dirs = chosen
+        # Adjust output filename based on whether we now have a right side
+        if args.right and args.output == "xts_summary.html":
+            args.output = "xts-diff_summary.html"
+        elif not args.right and args.output == "xts-diff_summary.html":
+            args.output = "xts_summary.html"
+
+
+
     def _resolve(arg: str, subdir: str = "") -> str:
         """Resolve *arg* to a concrete HTML file path.
 
@@ -355,7 +425,7 @@ def main(argv: List[str] | None = None) -> None:
 
     # ----- Multi‑subdir processing -----
 
-    # If only left path provided, we operate in single‑column mode (no comparison)
+    # Determine mode and initial subdirectory list
     single_mode = not args.right
     subdirs = [s.strip() for s in args.subdirs.split(",") if s.strip()]
     temp_dir = Path.cwd() / "tmp_diff_reports"
@@ -365,16 +435,67 @@ def main(argv: List[str] | None = None) -> None:
         shutil.rmtree(temp_dir)
     temp_dir.mkdir(parents=True, exist_ok=True)
     generated_files = []
+    # If interactive (or any) selection resulted in no subdirs to iterate,
+    # directly process the provided left/right URLs or paths.
+    if not subdirs:
+        # Use the left/right arguments as concrete HTML locations.
+        left_path = _resolve(args.left)
+        right_path = _resolve(args.right) if args.right else ""
+        sub_name = args.left.rstrip("/").split("/")[-1]
+        log.debug(f"Processing direct selection: left={left_path}, right={right_path}")
+        left_title, left_tables = extract_testdetails(left_path)
+        left_dfs = [_table_to_df(t) for t in left_tables]
+        if right_path:
+            right_title, right_tables = extract_testdetails(right_path)
+            right_dfs = [_table_to_df(t) for t in right_tables]
+            diffs = []
+            for lt, rt in zip(left_tables, right_tables):
+                ldf, rdf, diffdf = compare_tables(lt, rt)
+                left_dfs.append(ldf)
+                right_dfs.append(rdf)
+                diffs.append(diffdf)
+            # Preserve extra tables
+            if len(left_tables) > len(right_tables):
+                left_dfs.extend(_table_to_df(t) for t in left_tables[len(right_tables):])
+            elif len(right_tables) > len(left_tables):
+                right_dfs.extend(_table_to_df(t) for t in right_tables[len(left_tables):])
+            out_path = temp_dir / f"{sub_name}-diff.html"
+            generate_report(
+                left_dfs,
+                right_dfs,
+                diffs,
+                left_title,
+                right_title,
+                out_path,
+                left_path,
+                right_path,
+            )
+        else:
+            out_path = temp_dir / f"{sub_name}.html"
+            generate_report(
+                left_dfs,
+                [],
+                [],
+                left_title,
+                "",
+                out_path,
+                left_path,
+                None,
+            )
+        generated_files.append(out_path)
+        # Skip further processing
+        subdirs = []
     # ---------- Recursive processing (single‑column mode) ----------
-    if args.recursive or (
+    # Only run this block when we are in single‑column mode (no right side).
+    if (args.recursive or (
         single_mode and (Path(args.left).is_dir() or is_url(args.left))
-    ):
+    )) and not args.right:
         # Choose remote or local handling based on left argument type
         if is_url(args.left):
             generated_files.extend(_process_remote(args.left, subdirs, temp_dir))
         else:
             generated_files.extend(_process_local(args.left, subdirs, temp_dir))
-        # After processing all subdirs, skip the normal per‑subdir loop
+        # After processing all subdirs, skip the normal per‑subdir loop for single‑column mode
         subdirs = []
     # Continue with the original loop (may be empty)
     for sub in subdirs:

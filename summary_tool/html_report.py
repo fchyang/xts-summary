@@ -145,74 +145,9 @@ def _make_table(df: pd.DataFrame) -> str:
             details_td = f"<td>{details}</td>"
         parts.append(f"<tr>{test_td}{result_td}{details_td}</tr>")
 
+    
     return "<table class='testdetails'>" + "".join(parts) + "</table>"
 
-    """Convert a DataFrame into the custom HTML table with proper CSS classes.
-    The first row is treated as the module name, subsequent rows contain test, result, details.
-    Missing columns are padded with empty strings to avoid unpack errors.
-    """
-    rows = df.values.tolist()
-    # Handle "Incomplete Modules" table (header plus list of modules)
-    if rows and (
-        str(rows[0][0]).replace("\xa0", " ").strip().lower() == "incomplete modules"
-        or (
-            len(df.columns) == 1
-            and str(df.columns[0]).replace("\xa0", " ").strip().lower()
-            == "incomplete modules"
-        )
-    ):
-        # Determine header text
-        header = (
-            rows[0][0]
-            if str(rows[0][0]).replace("\xa0", " ").strip().lower()
-            == "incomplete modules"
-            else df.columns[0]
-        )
-        parts = [
-            f"<tr><th colspan='3' class='module' style='text-align:left;background:#a5c639 !important;color:black;font-weight:bold;'>{header}</th></tr>"
-        ]
-        # Data rows start after header if header is in first row, otherwise all rows are data
-        data_start = (
-            1
-            if str(rows[0][0]).replace("\xa0", " ").strip().lower()
-            == "incomplete modules"
-            else 0
-        )
-        for row in rows[data_start:]:
-            module_name = str(row[0]) if row else ""
-            if module_name:
-                parts.append(
-                    f"<tr><td colspan='3' class='module' style='background:#d4e9a9;color:black;'>{module_name}</td></tr>"
-                )
-        return f"<table class='incompletemodules' style='width:auto;'>{''.join(parts)}</table>"
-    if not rows:
-        return "<table class='testdetails'></table>"
-
-    # Module title (left‑aligned, no background)
-    module_name = rows[0][0]
-    parts = [MODULE_ROW_TMPL.format(module=module_name), TABLE_HEADER]
-
-    for row in rows[1:]:
-        # Ensure three columns
-        test, result, details = (list(row) + ["", "", ""])[:3]
-        # Skip possible extra header rows and empty rows
-        if (
-            test == "Test" and result == "Result" and details == "Details"
-        ) or not test.strip():
-            continue
-        col_class = "testname"
-        test_td = f'<td class="{col_class}">{test}</td>'
-        if result.strip().lower() == "fail":
-            result_td = f'<td class="failed">{result}</td>'
-            # Truncate failure details to 350 characters for display
-            display_details = details if len(details) <= 350 else details[:350]
-            details_td = f'<td class="failuredetails">{display_details}</td>'
-        else:
-            result_td = f"<td>{result}</td>"
-            details_td = f"<td>{details}</td>"
-        parts.append(f"<tr>{test_td}{result_td}{details_td}</tr>")
-
-    return "<table class='testdetails'>" + "".join(parts) + "</table>"
 
 
 def _make_summary_table(source: Optional[Union[Path, str]]) -> List[str]:
