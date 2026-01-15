@@ -70,6 +70,7 @@ jobs:
             <!-- Add changelog or notes here -->
           draft: false
           prerelease: false
+          skip_existing: true
 
       # -------------------------------------------------
       # 7️⃣ Upload the built artifacts to the Release
@@ -79,12 +80,14 @@ jobs:
         with:
           tag_name: ${{ github.ref_name }}
           files: dist/*.tar.gz
+          overwrite: true
 
       - name: Upload wheel
         uses: softprops/action-gh-release@v2
         with:
           tag_name: ${{ github.ref_name }}
           files: dist/*.whl
+          overwrite: true
 
       # -------------------------------------------------
       # 8️⃣ (Optional) Publish to PyPI
