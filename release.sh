@@ -53,11 +53,21 @@ git commit -m "Release $TAG" || echo "✅ 没有需要提交的改动"
 
 echo "📤 推送分支 ${REMOTE}/${BRANCH} …"
 # 使用 HTTPS + PAT 推送，避免交互式密码输入
-if [[ -z "${GITHUB_USERNAME:-}" || -z "${GITHUB_TOKEN:-}" || -z "${GITHUB_REPOSITORY:-}" ]]; then
-  echo "⚠️ 未设置 GITHUB_USERNAME、GITHUB_TOKEN 或 GITHUB_REPOSITORY，使用默认 remote 推送"
-  git push "${REMOTE}" "${BRANCH}"
+# 自动获取当前 remote URL 并在需要时注入凭证
+if [[ -n "${GITHUB_USERNAME:-}" && -n "${GITHUB_TOKEN:-}" ]]; then
+  # 取 origin 的 URL（可能是 https://github.com/owner/repo.git）
+  ORIGIN_URL=$(git remote get-url origin)
+  if [[ "$ORIGIN_URL" =~ ^https:// ]]; then
+    # 把 https:// 替换为带凭证的 URL
+    AUTH_URL=${ORIGIN_URL/https:\/\//https://${GITHUB_USERNAME}:${GITHUB_TOKEN}@}
+    git push "$AUTH_URL" "$BRANCH"
+  else
+    # 非 https (ssh) 直接使用原 remote
+    git push "$REMOTE" "$BRANCH"
+  fi
 else
-  git push "https://${GITHUB_USERNAME}:${GITHUB_TOKEN}@github.com/${GITHUB_REPOSITORY}.git" "${BRANCH}"
+  echo "⚠️ 未设置 GITHUB_USERNAME 或 GITHUB_TOKEN，使用默认 remote 推送"
+  git push "$REMOTE" "$BRANCH"
 fi
 
 # ---------- 2️⃣ 打 tag 并触发 GitHub Actions ----------
@@ -65,19 +75,33 @@ fi
 if git rev-parse "$TAG" >/dev/null 2>&1; then
     echo "⚠️ 本地已存在 $TAG，先删除旧 tag 再重新创建"
     git tag -d "$TAG"
-    if [[ -z "${GITHUB_USERNAME:-}" || -z "${GITHUB_TOKEN:-}" || -z "${GITHUB_REPOSITORY:-}" ]]; then
-  git push "${REMOTE}" ":refs/tags/$TAG" || true
+    # 删除远程旧 tag（如果需要）
+if [[ -n "${GITHUB_USERNAME:-}" && -n "${GITHUB_TOKEN:-}" ]]; then
+  ORIGIN_URL=$(git remote get-url origin)
+  if [[ "$ORIGIN_URL" =~ ^https:// ]]; then
+    AUTH_URL=${ORIGIN_URL/https:\/\//https://${GITHUB_USERNAME}:${GITHUB_TOKEN}@}
+    git push "$AUTH_URL" ":refs/tags/$TAG" || true
+  else
+    git push "$REMOTE" ":refs/tags/$TAG" || true
+  fi
 else
-  git push "https://${GITHUB_USERNAME}:${GITHUB_TOKEN}@github.com/${GITHUB_REPOSITORY}.git" ":refs/tags/$TAG" || true
+  git push "$REMOTE" ":refs/tags/$TAG" || true
 fi
 fi
 
 echo "🏷️ 创建并推送 tag $TAG …"
 git tag -a "$TAG" -m "Release $TAG"
-if [[ -z "${GITHUB_USERNAME:-}" || -z "${GITHUB_TOKEN:-}" || -z "${GITHUB_REPOSITORY:-}" ]]; then
-  git push "${REMOTE}" "$TAG"
+# 推送新 tag 到远程
+if [[ -n "${GITHUB_USERNAME:-}" && -n "${GITHUB_TOKEN:-}" ]]; then
+  ORIGIN_URL=$(git remote get-url origin)
+  if [[ "$ORIGIN_URL" =~ ^https:// ]]; then
+    AUTH_URL=${ORIGIN_URL/https:\/\//https://${GITHUB_USERNAME}:${GITHUB_TOKEN}@}
+    git push "$AUTH_URL" "$TAG"
+  else
+    git push "$REMOTE" "$TAG"
+  fi
 else
-  git push "https://${GITHUB_USERNAME}:${GITHUB_TOKEN}@github.com/${GITHUB_REPOSITORY}.git" "$TAG"
+  git push "$REMOTE" "$TAG"
 fi
 
 # --------------------------------------------------------------
