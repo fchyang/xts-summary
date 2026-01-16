@@ -1,0 +1,65 @@
+<!DOCTYPE html>
+<html><head><meta charset='utf-8'><title>Table Diff</title><base target="_blank">
+<style>
+/*added for single column layout*/
+.single-col {flex:0 0 72%; max-width:72%; padding:10px; box-sizing:border-box; overflow-y:auto; overflow-x:hidden; min-width:0; margin:0 auto;}
+.single-col h2 {margin-left:auto; margin-right:auto; text-align:center;}
+.filepath {margin-top:0.2em; margin-bottom:0.5em; text-align:center; font-size:0.96em; color:#555; word-break:break-all; overflow-wrap:anywhere;}
+.single-col .summary, .single-col .testdetails, .single-col .incompletemodules {margin-left:auto; margin-right:auto; text-align:left;}
+
+.single-col .summary th, .single-col .summary td {text-align:left;}
+.failuredetails {white-space:normal; word-break:break-all;}
+
+body {font-family:Arial, sans-serif; margin:0; padding:0;}
+.container {display:flex; flex-wrap:wrap; width:100%; overflow-x:auto;}
+ .col {flex:0 0 50%; max-width:50%; padding:10px; box-sizing:border-box; overflow-y:auto; overflow-x:hidden; min-width:0;}
+.col + .col {border-left:1px dashed #aaa;}
+/* vertical divider between columns */
+
+table {border-collapse:collapse; margin:10px 0; width:100%;}
+/* make cells wrap content */
+.testdetails td {white-space:normal; word-break:break-all;}
+
+th, td {border:1px solid #aaa; padding:4px 8px;}
+h2 {margin-top:0.5em;}
+.testdetails td.module   {background:none;}
+.testdetails th.module   {background:none;}
+.testdetails td.testname {background:#d4e9a9;}
+.testdetails td.failed   {background:#fa5858; text-align:center; font-weight:bold;}
+.testdetails td.failuredetails {background:#d4e9a9;}
+.testdetails th          {background:#a5c639 !important;}
+.testdetails th.module   {background:none !important;}
+    .summary-header {background:#a5c639 !important; border: solid 1px #aaa; text-align:left;}
+    .summary-data {background:#d4e9a9; word-break:break-all; white-space:normal;}
+    .summary td {max-width:490px; word-break:break-all; white-space:normal; overflow-wrap:anywhere;}
+
+    /* Horizontal divider with centered label */
+    .horizontal-divider {border-top:1px dashed #aaa; margin:-0.25em 0 12px 0; position:relative; text-align:center; width:calc(200% + 20px); left:-50%; margin-left:-10px; margin-right:-10px;}
+    .horizontal-divider span {background:#fff; padding:0 8px; position:relative; top:-0.6em; font-weight:bold; font-size:1.3em;}
+
+        .col + .col .summary {margin-left:0;}
+    .summary-wrapper {display:flex; align-items:flex-start; gap:10px; margin-top:-0.5em;}
+    .col + .col .summary-wrapper {justify-content:flex-start;}
+    .col + .col .left-summary {margin-left:0;}
+    .col + .col .right-summary {visibility:hidden; width:0;}
+    .summary-wrapper .right-summary {display:flex; flex-direction:column; gap:5px;}
+    .cts-diff {background:orange; padding:4px; font-weight:bold; text-align:center; margin-top:12px;}
+    .degrade-modules {color:#b22222;background:none;font-size:0.9em;}
+    .chart {margin-top:-0.5em;}
+    .suspicious-label {color:black;font-weight:bold;background:none;}
+    /* Align file path with title in double‑column mode */
+    .col .filepath {text-align:left; margin-left:0;}
+
+</style></head><body>
+<div class='container'>
+<div class='single-col'>
+<h2>Realtek/redwing_amati/redwing_amati:16/BTR1.251230.001/171:user/release-keys</h2>
+<div class='filepath'><a href='http://10.22.193.246/AATS_XTS_REPORTS/Merlin9_ANR16/DB2881/20260102_171/ctsongsi/dev_tools/2026.01.05_23.40.52/test_result_failures_suite.html'>http://10.22.193.246/AATS_XTS_REPORTS/Merlin9_ANR16/DB2881/20260102_171/ctsongsi/dev_tools/2026.01.05_23.40.52/test_result_failures_suite.html</a></div>
+<br><div class='horizontal-divider'><span>CTS / cts-on-gsi</span></div><div class='summary-wrapper'><div class='left-summary'><table class='summary'><tr><th class="summary-header">Summary</th><th class="summary-header"></th></tr><tr><td class="summary-data">Suite / Plan</td><td class="summary-data">CTS / cts-on-gsi</td></tr><tr><td class="summary-data">Suite / Build</td><td class="summary-data">16_r4 / 14579062</td></tr><tr><td class="summary-data">Host Info</td><td class="summary-data">Result/@start  rtksa2  (Linux - 6.14.0-37-generic)</td></tr><tr><td class="summary-data">Start time / End Time</td><td class="summary-data">Mon Jan 05 23:40:52 CST 2026 /  Mon Jan 05 23:46:42 CST 2026</td></tr><tr><td class="summary-data">Tests Passed</td><td class="summary-data">195638</td></tr><tr><td class="summary-data">Tests Failed</td><td class="summary-data">6</td></tr><tr><td class="summary-data">Modules Done</td><td class="summary-data">547</td></tr><tr><td class="summary-data">Modules Total</td><td class="summary-data">547</td></tr><tr><td class="summary-data">Fingerprint</td><td class="summary-data">Realtek/redwing_amati/redwing_amati:16/BTR1.251230.001/171:user/release-keys</td></tr><tr><td class="summary-data">Security Patch</td><td class="summary-data">2025-12-01</td></tr><tr><td class="summary-data">Release (SDK)</td><td class="summary-data">16 (36.0)</td></tr><tr><td class="summary-data">ABIs</td><td class="summary-data">armeabi-v7a,armeabi</td></tr></table></div><div class='right-summary' style='display:flex; flex-direction:row; align-items:flex-start; gap:10px; visibility:visible; margin-top:1.5em;'><div class='chart-container'><div class='chart'><canvas id='moduleChart_CTS___cts-on-gsi_4' width='230' height='230' style='width:230px;height:230px;'></canvas></div><script src='https://cdn.jsdelivr.net/npm/chart.js'></script><script>var ctx=document.getElementById('moduleChart_CTS___cts-on-gsi_4').getContext('2d');new Chart(ctx,{type:'pie',data:{labels:['Incomplete modules (0)','Suspicious modules (5)'],datasets:[{data:[0,5],backgroundColor:['#4caf50','#f44336']}]} ,options:{responsive:false,maintainAspectRatio:false}});</script></div><div class='degrade-modules'><span class='suspicious-label'>Suspicious modules:</span><br>CtsCameraTestCases<br>CtsMediaDecoderTestCases<br>CtsPermissionPolicyTestCases<br>CtsSecurityHostTestCases<br>MctsMediaDecoderTestCases</div><div class='degrade-modules'><span class='suspicious-label'>Incomplete modules:</span><br></div></div></div>
+<table class='testdetails'><tr><th colspan="3" class="module" style="text-align:left;">armeabi-v7a CtsCameraTestCases</th></tr><tr><th>Test</th><th>Result</th><th>Details</th></tr><tr><td class="testname">android.hardware.camera2.cts.CaptureRequestTest#testNoiseReductionModeControl[1]</td><td class="failed">fail</td><td class="failuredetails">java.lang.Exception: There were 3 errors:</td></tr><tr><td class="testname">android.hardware.camera2.cts.ExtendedCameraCharacteristicsTest#testAvailableStreamConfigs[1]</td><td class="failed">fail</td><td class="failuredetails">junit.framework.AssertionFailedError: Required QVGA size not found for format 100 for: ID 100 : No elements from [640x480, 1280x720, 1920x1080] in [320x240]</td></tr></table>
+<table class='testdetails'><tr><th colspan="3" class="module" style="text-align:left;">armeabi-v7a CtsMediaDecoderTestCases</th></tr><tr><th>Test</th><th>Result</th><th>Details</th></tr><tr><td class="testname">android.media.decoder.cts.DecoderTest#testTunneledAudioUnderrunVp9</td><td class="failed">fail</td><td class="failuredetails">java.lang.AssertionError: Video is 117 milliseconds out of sync of audio after resuming (video:19512401, audio:19512284)</td></tr></table>
+<table class='testdetails'><tr><th colspan="3" class="module" style="text-align:left;">armeabi-v7a CtsPermissionPolicyTestCases</th></tr><tr><th>Test</th><th>Result</th><th>Details</th></tr><tr><td class="testname">android.permissionpolicy.cts.PrivappPermissionsTest#privappPermissionsNeedToBeWhitelisted</td><td class="failed">fail</td><td class="failuredetails">android.content.pm.PackageManager$NameNotFoundException: com.google.android.gms</td></tr></table>
+<table class='testdetails'><tr><th colspan="3" class="module" style="text-align:left;">armeabi-v7a CtsSecurityHostTestCases</th></tr><tr><th>Test</th><th>Result</th><th>Details</th></tr><tr><td class="testname">android.security.cts.SELinuxHostTest#testNoBugreportDenials</td><td class="failed">fail</td><td class="failuredetails">java.lang.AssertionError: Found illegal SELinux denial(s): avc:  denied  { read } for  name="u:object_r:default_prop:s0" dev="tmpfs" ino=166 scontext=u:r:hal_dumpstate_default:s0 tcontext=u:object_r:default_prop:s0 tclass=file permissive=0</td></tr></table>
+<table class='testdetails'><tr><th colspan="3" class="module" style="text-align:left;">armeabi-v7a MctsMediaDecoderTestCases</th></tr><tr><th>Test</th><th>Result</th><th>Details</th></tr><tr><td class="testname">android.media.decoder.cts.DecoderTest#testTunneledAudioUnderrunVp9</td><td class="failed">fail</td><td class="failuredetails">java.lang.AssertionError: Video is 124 milliseconds out of sync of audio after resuming (video:19649434, audio:19649310)</td></tr></table>
+</div>
+</div></body></html>

@@ -26,13 +26,60 @@
 ---
 
 ## 使用示例
+
 以AATS实际目录，ex：
+
+交互模式：
+summary-tool -i http://12.22.193.246/AATS_XTS_REPORTS/_ANR16/DB28
+在远程路径下发现以下子目录:
+  1. /AATS_XTS_REPORTS/_ANR16
+  2. 20251203_140
+  3. 20251209_146
+  4. 20251218_153
+  5. 20251230_162
+  6. 20260102_171
+  7. 20260106_177
+请选择目录编号:
+  - 输入单个编号 → 生成该目录里XTS的汇总报告
+  - 输入两个编号,用逗号分隔 → 生成两目录里XTS的对比报告
+编号: 5,6
+INFO: No testdetails for subdir 'gts', generating summary-only diff.
+INFO: No testdetails for subdir 'sts', generating summary-only diff.
+INFO: Merged diff report written to xts-diff_summary.html
+
+summary-tool -i http://12.22.193.246/AATS_XTS_REPORTS/_ANR16/DB28
+在远程路径下发现以下子目录:
+  1. /AATS_XTS_REPORTS/_ANR16
+  2. 20251203_140
+  3. 20251209_146
+  4. 20251218_153
+  5. 20251230_162
+  6. 20260102_171
+  7. 20260106_177
+请选择目录编号:
+  - 输入单个编号 → 生成该目录里XTS的汇总报告
+  - 输入两个编号,用逗号分隔 → 生成两目录里XTS的对比报告
+编号: 6
+INFO: Merged diff report written to xts_summary.html
+
 单参数：
-summary-tool http://10.22.193.246/AATS_XTS_REPORTS/Merlin9_ANR16/DB2881/20260102_171/
+summary-tool http://12.22.193.246/AATS_XTS_REPORTS/_ANR16/DB2881/20260102_171/
 - 会把171版本下面所有的报告汇总到xts_summary.html，单列显示
 双参数：
-summary-tool summary-tool http://10.22.193.246/AATS_XTS_REPORTS/2875P_ANR14/DB2302/20251130_667/ http://10.22.193.246/AATS_XTS_REPORTS/2875P_ANR14/DB2302/20251205_672/
+summary-tool summary-tool http://12.22.193.246/AATS_XTS_REPORTS/287P_ANR14/DB23/20251130_667/ http://10.22.193.246/AATS_XTS_REPORTS/287P_ANR14/DB23/20251205_672/
 - 会把667、672下面所有报告汇总，然后比对生成xts-diff_summary.html，双列显示
+
+---
+### 交互式模式（-i / --interactive）
+
+`summary-tool -i <根URL>`
+
+- 脚本会列出根 URL 下的子目录列表。
+- 输入 **单个** 编号 → 生成该子目录的 **单列** 汇总报告（`xts_summary.html`）。
+- 输入 **两个** 编号（用逗号分隔） → 对这两个子目录生成 **对比** 报告（`xts-diff_summary.html`），并递归搜索子目录中的所有 `test_result_failures_suite.html` 文件。
+- 交互完成后，工具会自动进入原有的单列或双列流程，无需额外参数。
+
+---
 
 ### 单列模式（单参数）
 单列模式仅提供左侧路径（目录或 HTML 文件），工具会递归搜索 `test_result_failures_suite.html`（或首个 HTML）并生成单独的汇总报告。
@@ -46,6 +93,8 @@ python -m summary_tool.cli https://example.com/reports -r -o remote_summary.html
 - `-s`：不指定之目录，就会递归搜索所有的子目录下的test_result_failures_suite.html。
 - `-r/--recursive`：在单列模式下强制递归搜索（可选，默认若左路径是目录且包含目标文件也会递归）。
 - 输出默认 `xts_summary.html`（未指定 `-o` 时）。
+
+---
 
 ### 双列模式（双参数）
 双列模式同时提供左、右路径，用于两套报告的对比，生成差异报告。
@@ -62,6 +111,8 @@ python -m summary_tool.cli https://example.com/left https://example.com/right -s
 - `-s`：不指定之目录，就会递归搜索所有的子目录下的test_result_failures_suite.html。
 - 输出默认 `xts-diff_summary.html`（未指定 `-o` 时）。
 - 若只提供左侧路径，则进入单列模式，上述示例可省略右侧参数。
+
+---
 
 ### 使用已安装的 CLI 命令（若已执行 `pip install -e .`）
 ```bash
