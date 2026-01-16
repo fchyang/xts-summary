@@ -532,25 +532,42 @@ def main(argv: List[str] | None = None) -> None:
             right_title, right_tables = extract_testdetails(right_path)
         else:
             right_title, right_tables = "", []
-        if not left_tables and not right_tables:
+        # Separate tables by class type for proper matching
+        left_testdetails = [t for t in left_tables if "testdetails" in (t.get("class") or [])]
+        left_incomplete = [t for t in left_tables if "incompletemodules" in (t.get("class") or [])]
+        right_testdetails = [t for t in right_tables if "testdetails" in (t.get("class") or [])]
+        right_incomplete = [t for t in right_tables if "incompletemodules" in (t.get("class") or [])]
+        if not left_testdetails and not right_testdetails:
             # No testdetails in either side, but we still want to generate a diff report with summary and version info.
             log.info(
                 f"No testdetails for subdir '{sub}', generating summary-only diff."
             )
-        elif not left_tables or not right_tables:
+        elif not left_testdetails or not right_testdetails:
             # One side missing testdetails – still generate report with whatever tables are present.
             log.info(f"Partial testdetails for subdir '{sub}'.")
         left_dfs, right_dfs, diffs = [], [], []
-        for lt, rt in zip(left_tables, right_tables):
+        # Compare testdetails tables first
+        for lt, rt in zip(left_testdetails, right_testdetails):
             left_df, right_df, diff_df = compare_tables(lt, rt)
             left_dfs.append(left_df)
             right_dfs.append(right_df)
             diffs.append(diff_df)
-        # Preserve extra tables
-        if len(left_tables) > len(right_tables):
-            left_dfs.extend(_table_to_df(t) for t in left_tables[len(right_tables) :])
-        elif len(right_tables) > len(left_tables):
-            right_dfs.extend(_table_to_df(t) for t in right_tables[len(left_tables) :])
+        # Preserve extra testdetails tables
+        if len(left_testdetails) > len(right_testdetails):
+            left_dfs.extend(_table_to_df(t) for t in left_testdetails[len(right_testdetails):])
+        elif len(right_testdetails) > len(left_testdetails):
+            right_dfs.extend(_table_to_df(t) for t in right_testdetails[len(left_testdetails):])
+        # Now handle incompletemodules tables (they are displayed differently)
+        for lt, rt in zip(left_incomplete, right_incomplete):
+            left_df, right_df, diff_df = compare_tables(lt, rt)
+            left_dfs.append(left_df)
+            right_dfs.append(right_df)
+            diffs.append(diff_df)
+        # Preserve extra incompletemodules tables
+        if len(left_incomplete) > len(right_incomplete):
+            left_dfs.extend(_table_to_df(t) for t in left_incomplete[len(right_incomplete):])
+        elif len(right_incomplete) > len(left_incomplete):
+            right_dfs.extend(_table_to_df(t) for t in right_incomplete[len(left_incomplete):])
         out_path = temp_dir / f"{sub}-diff.html"
         generate_report(
             left_dfs,
