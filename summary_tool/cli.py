@@ -306,7 +306,12 @@ def main(argv: List[str] | None = None) -> None:
         print("在远程路径下发现以下子目录:")
         for idx, name in enumerate(remote_subs, start=1):
             print(f"  {idx}. {name}")
-        sel = input("请输入目录编号（单个或用逗号分隔两个）: ")
+        sel = input(
+              "请选择目录编号:\n"
+              "  - 输入单个编号 → 生成该目录里XTS的汇总报告\n"
+              "  - 输入两个编号,用逗号分隔 → 生成两目录里XTS的对比报告\n"
+        "编号: "
+        )
         chosen_idxs = [s.strip() for s in sel.split(',') if s.strip().isdigit()]
         if not chosen_idxs:
             log.error("未选择有效的目录编号")

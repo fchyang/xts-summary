@@ -1,0 +1,2 @@
+[console_scripts]
+summary-tool = summary_tool.cli:main

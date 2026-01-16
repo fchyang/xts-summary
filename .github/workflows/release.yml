@@ -39,8 +39,12 @@ jobs:
           pip install build twine
 
       # -------------------------------------------------
-      # 4️⃣ Build the distribution (sdist + wheel)
+      # 4️⃣ Clean old artifacts and Build the distribution (sdist + wheel)
       # -------------------------------------------------
+      - name: Clean previous build artifacts
+        run: |
+          rm -rf dist && mkdir -p dist
+
       - name: Build distribution
         run: |
           python -m build   # produces ./dist/*.tar.gz and ./dist/*.whl
@@ -54,9 +58,10 @@ jobs:
       #     pytest
 
       # -------------------------------------------------
-      # 6️⃣ Create (or update) Release & upload assets in one step
+      # 6️⃣ Create (or update) Release (without assets first)
       # -------------------------------------------------
-      - name: Create Release and Upload Assets
+      - name: Create Release (no assets)
+        id: create_release
         uses: softprops/action-gh-release@v2
         with:
           tag_name: ${{ github.ref_name }}
@@ -70,6 +75,15 @@ jobs:
           draft: false
           prerelease: false
           make_latest: true
+          # No files uploaded here
+
+      # -------------------------------------------------
+      # 7️⃣ Upload only the freshly built assets to the newly created release
+      # -------------------------------------------------
+      - name: Upload Release Assets
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: ${{ github.ref_name }}
           files: dist/*.tar.gz,dist/*.whl
           overwrite_files: true
 
