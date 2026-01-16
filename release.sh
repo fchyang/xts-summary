@@ -49,7 +49,16 @@ fi
 
 git add -A
 # 若已经没有变化，git commit 会报错，这里捕获并忽略
-git commit -m "Release $TAG" || echo "✅ 没有需要提交的改动"
+# 若提供额外信息，则拼接到 commit 信息中
+if [[ "$#" -gt 0 ]]; then
+  # 第一个参数作为额外描述（可包含空格，记得引用）
+  EXTRA_MSG="$*"
+  COMMIT_MSG="Release $TAG – $EXTRA_MSG"
+else
+  COMMIT_MSG="Release $TAG"
+fi
+
+git commit -m "$COMMIT_MSG" || echo "✅ 没有需要提交的改动"
 
 echo "📤 推送分支 ${REMOTE}/${BRANCH} …"
 # 使用 HTTPS + PAT 推送，避免交互式密码输入
