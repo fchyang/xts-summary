@@ -466,6 +466,28 @@ def generate_report(
             return True
         return False
 
+    # Helper to extract module names from an Incomplete Modules table
+    def _extract_incomplete_modules(dfs: list[pd.DataFrame]) -> set[str]:
+        mods: set[str] = set()
+        for df in dfs:
+            if df.empty:
+                continue
+            # Case 1: first cell is the header
+            first_cell = str(df.iloc[0, 0]).strip().lower()
+            if first_cell == "incomplete modules":
+                for val in df.iloc[1:, 0]:
+                    name = str(val).strip()
+                    if name:
+                        mods.add(name)
+                continue
+            # Case 2: single‑column table where column name is the header
+            if len(df.columns) == 1 and "incomplete modules" in str(df.columns[0]).strip().lower():
+                for val in df.iloc[:, 0]:
+                    name = str(val).strip()
+                    if name:
+                        mods.add(name)
+        return mods
+
     left_modules = set()
     for df in left_dfs:
         if not _is_incomplete_df(df):
@@ -488,6 +510,11 @@ def generate_report(
     # If no suspicious modules but there are same modules, treat the same modules as suspicious for display
     if not suspicious_set and same_modules:
         suspicious_set = left_modules & right_modules
+    # --- NEW: include Incomplete Modules from the newer side into suspicious_set ---
+    if newer_side == "left":
+        suspicious_set = suspicious_set.union(_extract_incomplete_modules(left_dfs))
+    elif newer_side == "right":
+        suspicious_set = suspicious_set.union(_extract_incomplete_modules(right_dfs))
     degrade_modules = len(suspicious_set)
     # In single‑column mode, compute "Incomplete modules" from the summary table
     # (Modules Total - Modules Done) and keep the original "Suspicious modules" count.
