@@ -452,9 +452,28 @@ def generate_report(
     same_count = len(left_tests & right_tests)
     diff_count = len(left_tests ^ right_tests)
     overlap_summary = f"<table class='summary'><tr><th class='summary-header'>Same testnames</th><td class='summary-data'>{same_count}</td></tr><tr><th class='summary-header'>Degrade testnames</th><td class='summary-data' style='background:#fa5858;'>{diff_count}</td></tr></table>"
-        # Compute module overlap statistics
-    left_modules = {str(df.iloc[0, 0]) for df in left_dfs}
-    right_modules = {str(df.iloc[0, 0]) for df in right_dfs}
+    # Compute module overlap statistics (excluding Incomplete Modules)
+    # Helper to decide whether a DataFrame represents an Incomplete Modules table
+    def _is_incomplete_df(df: pd.DataFrame) -> bool:
+        if df.empty:
+            return False
+        # case 1: first cell contains the header
+        first_cell = str(df.iloc[0, 0]).strip().lower()
+        if first_cell == "incomplete modules":
+            return True
+        # case 2: single‑column table where the column name is the header
+        if len(df.columns) == 1 and "incomplete modules" in str(df.columns[0]).strip().lower():
+            return True
+        return False
+
+    left_modules = set()
+    for df in left_dfs:
+        if not _is_incomplete_df(df):
+            left_modules.add(str(df.iloc[0, 0]))
+    right_modules = set()
+    for df in right_dfs:
+        if not _is_incomplete_df(df):
+            right_modules.add(str(df.iloc[0, 0]))
     same_modules = len(left_modules & right_modules)
     # Determine suspicious modules based on newer_side (dual‑column only)
     if newer_side:
