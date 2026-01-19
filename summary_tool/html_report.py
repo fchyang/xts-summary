@@ -313,6 +313,7 @@ def generate_report(
     left_summary_source: Optional[Union[Path, str]] = None,
     right_summary_source: Optional[Union[Path, str]] = None,
     report_config: Optional[ReportConfig] = None,
+    newer_side: str = "",
 ) -> Path:
     # If a ReportConfig is provided, override individual arguments
     if report_config is not None:
@@ -451,11 +452,24 @@ def generate_report(
     same_count = len(left_tests & right_tests)
     diff_count = len(left_tests ^ right_tests)
     overlap_summary = f"<table class='summary'><tr><th class='summary-header'>Same testnames</th><td class='summary-data'>{same_count}</td></tr><tr><th class='summary-header'>Degrade testnames</th><td class='summary-data' style='background:#fa5858;'>{diff_count}</td></tr></table>"
-    # Compute module overlap statistics
+        # Compute module overlap statistics
     left_modules = {str(df.iloc[0, 0]) for df in left_dfs}
     right_modules = {str(df.iloc[0, 0]) for df in right_dfs}
     same_modules = len(left_modules & right_modules)
-    degrade_modules = len(left_modules ^ right_modules)
+    # Determine suspicious modules based on newer_side (dual‑column only)
+    if newer_side:
+        if newer_side == "left":
+            suspicious_set = left_modules - right_modules
+        elif newer_side == "right":
+            suspicious_set = right_modules - left_modules
+        else:
+            suspicious_set = left_modules ^ right_modules
+    else:
+        suspicious_set = left_modules ^ right_modules
+    # If no suspicious modules but there are same modules, treat the same modules as suspicious for display
+    if not suspicious_set and same_modules:
+        suspicious_set = left_modules & right_modules
+    degrade_modules = len(suspicious_set)
     # In single‑column mode, compute "Incomplete modules" from the summary table
     # (Modules Total - Modules Done) and keep the original "Suspicious modules" count.
     if single_mode:
@@ -512,12 +526,12 @@ def generate_report(
         f"new Chart(ctx,{{type:'pie',data:{{labels:['{label1} ({same_modules})','Suspicious modules ({degrade_modules})'],datasets:[{{data:[{same_modules},{degrade_modules}],backgroundColor:['#4caf50','#f44336']}}]}} ,options:{{responsive:false,maintainAspectRatio:false}}}});"
         "</script>"
     )
-    # Build left summary: include left summary, CTS Diff block, chart, and list of degraded module names
-    degrade_module_names = left_modules.symmetric_difference(right_modules)
+        # Build left summary: include left summary, CTS Diff block, chart, and list of degraded module names
+    # Use the suspicious_set (modules only in newer side) for display
+    suspicious_set = left_modules.symmetric_difference(right_modules) if not newer_side else suspicious_set
     # Remove the ABI prefix (e.g., "armeabi-v7a") from module names for display
     cleaned_module_names = []
-    for name in degrade_module_names:
-        # Strip common ABI prefixes and surrounding whitespace
+    for name in suspicious_set:
         cleaned = (
             name.replace("armeabi-v7a ", "")
             .replace("armeabi-v7a\u00a0", "")
@@ -526,10 +540,10 @@ def generate_report(
             .strip()
         )
         cleaned_module_names.append(cleaned)
-    degrade_module_names = set(cleaned_module_names)
+    suspicious_set = set(cleaned_module_names)
     degrade_modules_list_html = (
         "<div class='degrade-modules'><span class='suspicious-label'>Suspicious modules:</span><br>"
-        + "<br>".join(sorted(degrade_module_names))
+        + "<br>".join(sorted(suspicious_set))
         + "</div>"
     )
     # Gather module names from the "Incomplete modules" table (if present) for single‑column mode

@@ -14,6 +14,8 @@ Key features added:
 """
 
 import argparse
+import os
+from email.utils import parsedate_to_datetime
 import logging
 import requests
 from pathlib import Path
@@ -431,6 +433,27 @@ def main(argv: List[str] | None = None) -> None:
     # ----- Multi‑subdir processing -----
 
     # Determine mode and initial subdirectory list
+    def _get_timestamp(source: str) -> float:
+        """Return POSIX timestamp for *source*.
+        For local files uses ``os.path.getmtime``; for URLs performs a HEAD request
+        and parses the ``Last-Modified`` header. Returns 0.0 on failure.
+        """
+        if source.startswith(("http://", "https://")):
+            try:
+                resp = requests.head(source, timeout=5, allow_redirects=True)
+                if resp.status_code == 200:
+                    lm = resp.headers.get("Last-Modified")
+                    if lm:
+                        dt = parsedate_to_datetime(lm)
+                        return dt.timestamp()
+            except Exception:
+                pass
+            return 0.0
+        else:
+            try:
+                return os.path.getmtime(source)
+            except Exception:
+                return 0.0
     single_mode = not args.right
     subdirs = [s.strip() for s in args.subdirs.split(",") if s.strip()]
     temp_dir = Path.cwd() / "tmp_diff_reports"
@@ -477,6 +500,8 @@ def main(argv: List[str] | None = None) -> None:
             )
         else:
             out_path = temp_dir / f"{sub_name}.html"
+            # Single‑column mode – newer_side defaults to "left"
+            newer_side = "left"
             generate_report(
                 left_dfs,
                 [],
@@ -486,6 +511,7 @@ def main(argv: List[str] | None = None) -> None:
                 out_path,
                 left_path,
                 None,
+                newer_side=newer_side,
             )
         generated_files.append(out_path)
         # Skip further processing
@@ -523,6 +549,14 @@ def main(argv: List[str] | None = None) -> None:
 
         left_path = _resolve_with_all_variants(args.left, sub)
         right_path = _resolve_with_all_variants(args.right, sub) if args.right else ""
+        # Determine newer side based on timestamps
+        if args.right:
+            left_ts = _get_timestamp(left_path)
+            right_ts = _get_timestamp(right_path)
+            newer_side = "left" if left_ts >= right_ts else "right"
+        else:
+            newer_side = "left"
+        log.debug(f"Sub '{sub}': newer_side={newer_side}, left_ts={left_ts if args.right else 'N/A'}, right_ts={right_ts if args.right else 'N/A'}")
         log.debug(f"Processing subdir '{sub}': left={left_path}, right={right_path}")
 
         # Extract tables and titles
@@ -570,15 +604,16 @@ def main(argv: List[str] | None = None) -> None:
             right_dfs.extend(_table_to_df(t) for t in right_incomplete[len(left_incomplete):])
         out_path = temp_dir / f"{sub}-diff.html"
         generate_report(
-            left_dfs,
-            right_dfs,
-            diffs,
-            left_title,
-            right_title,
-            out_path,
-            left_path,
-            right_path if right_path else None,
-        )
+                left_dfs,
+                right_dfs,
+                diffs,
+                left_title,
+                right_title,
+                out_path,
+                left_path,
+                right_path if right_path else None,
+                newer_side=newer_side,
+            )
         generated_files.append(out_path)
 
     # ----- Merge generated reports -----
