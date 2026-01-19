@@ -57,11 +57,12 @@ jobs:
       #     pip install -e .
       #     pytest
 
+
       # -------------------------------------------------
-      # 6️⃣ Create (or update) Release (without assets first)
+      # 6️⃣ Create Release and upload assets in one step (no draft)
       # -------------------------------------------------
-      - name: Create Release (no assets)
-        id: create_release
+      - name: Create Release with Assets
+        id: create_release_with_assets
         uses: softprops/action-gh-release@v2
         with:
           tag_name: ${{ github.ref_name }}
@@ -75,15 +76,6 @@ jobs:
           draft: false
           prerelease: false
           make_latest: true
-          # No files uploaded here
-
-      # -------------------------------------------------
-      # 7️⃣ Upload only the freshly built assets to the newly created release
-      # -------------------------------------------------
-      - name: Upload Release Assets
-        uses: softprops/action-gh-release@v2
-        with:
-          tag_name: ${{ github.ref_name }}
           files: dist/*.tar.gz,dist/*.whl
           overwrite_files: true
 

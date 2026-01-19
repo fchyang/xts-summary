@@ -37,6 +37,25 @@ fi
 TAG="v${VERSION}"
 echo "🚀 当前准备发布的版本是: $VERSION (tag: $TAG)"
 
+# -------------------------------------------------
+# 防止重复创建 Release（同标签已存在时直接退出）
+# -------------------------------------------------
+if [[ -n "${GITHUB_TOKEN:-}" ]]; then
+  # 使用 GitHub API 检查同标签的 Release 是否已存在
+  api_url="https://api.github.com/repos/${GITHUB_REPOSITORY}/releases/tags/${TAG}"
+  response=$(curl -s -H "Authorization: token $GITHUB_TOKEN" "$api_url")
+  if echo "$response" | grep -q '"url"'; then
+    echo "⚠️ Release $TAG 已在 GitHub 上存在，已跳过创建以避免重复上传。"
+    exit 0
+  fi
+else
+  # 没有 token 时退回 git ls-remote 检查远程标签
+  if git ls-remote --tags "$REMOTE" "$TAG" | grep -q "$TAG"; then
+    echo "⚠️ 远程已经存在标签 $TAG，已跳过创建以避免重复上传。"
+    exit 0
+  fi
+fi
+
 # ---------- 1️⃣ 提交改动 ----------
 echo "🔧 添加并提交本地改动…"
 # 确保 Git 使用正确的用户名和邮箱
