@@ -63,7 +63,13 @@ h2 {margin-top:0.5em;}
     .col + .col .left-summary {margin-left:0;}
     .col + .col .right-summary {visibility:visible; width:auto;}
     .summary-wrapper .right-summary {display:flex; flex-direction:column; gap:5px;}
-    .cts-diff {background:orange; padding:4px; font-weight:bold; text-align:center; margin-top:12px;}
+    .col .left-summary {margin-left:0; margin-right:0;}
+    .col .right-summary {margin-left:0;}
+    .summary-wrapper .left-summary, .summary-wrapper .right-summary {margin:0; padding:0;}
+    .col:first-child .summary-wrapper .left-summary {transform: translateX(60px);}
+    .col + .col .summary-wrapper .right-summary {transform: translateX(-58px) !important;}
+    /*.col:first-child .summary-wrapper .right-summary {margin-left:-10px !important;}*/
+    .cts-diff {background:orange; padding:4px; font-weight:bold; text-align:center; margin-top:12px; width:250px;}
     .degrade-modules {color:#b22222;background:none;font-size:0.9em;}
     .chart {margin-top:-0.5em;}
     .suspicious-label {color:black;font-weight:bold;background:none;}
@@ -681,7 +687,7 @@ def generate_report(
         left_summary_combined = (
         divider_html + "<div class='summary-wrapper'>"
         "<div class='left-summary'>" + "".join(left_summary) + "</div>"
-        "<div class='right-summary'>"
+        "<div class='right-summary' style='margin-left:auto;'>"
         f"<div class='cts-diff'>{diff_title}</div>"
         + chart_html
         + chart_script
