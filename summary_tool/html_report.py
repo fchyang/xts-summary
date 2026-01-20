@@ -61,7 +61,7 @@ h2 {margin-top:0.5em;}
     .summary-wrapper {display:flex; align-items:flex-start; gap:10px; margin-top:-0.5em;}
     .col + .col .summary-wrapper {justify-content:flex-start;}
     .col + .col .left-summary {margin-left:0;}
-    .col + .col .right-summary {visibility:hidden; width:0;}
+    .col + .col .right-summary {visibility:visible; width:auto;}
     .summary-wrapper .right-summary {display:flex; flex-direction:column; gap:5px;}
     .cts-diff {background:orange; padding:4px; font-weight:bold; text-align:center; margin-top:12px;}
     .degrade-modules {color:#b22222;background:none;font-size:0.9em;}
@@ -562,7 +562,7 @@ def generate_report(
     else:
         chart_id = f"moduleChart_{safe_suite}_{chart_index}"
 
-    chart_html = f"<div class='chart'><canvas id='{chart_id}' width='230' height='230' style='width:230px;height:230px;'></canvas></div>"
+    chart_html = f"<div class='chart' style='margin-top:0.2em'><canvas id='{chart_id}' width='252' height='252' style='width:252px;height:252px;'></canvas></div>"
     # Determine label for pie chart based on mode
     label1 = "Incomplete modules" if single_mode else "Same modules"
     chart_script = (
@@ -588,7 +588,7 @@ def generate_report(
         cleaned_module_names.append(cleaned)
     suspicious_set = set(cleaned_module_names)
     degrade_modules_list_html = (
-        "<div class='degrade-modules'><span class='suspicious-label'>Suspicious modules:</span><br>"
+        "<div class='degrade-modules' style='margin-top:0.5em;'><span class='suspicious-label'>Suspicious modules:</span><br>"
         + "<br>".join(sorted(suspicious_set))
         + "</div>"
     )
@@ -679,22 +679,50 @@ def generate_report(
         )
     else:
         left_summary_combined = (
-            divider_html + "<div class='summary-wrapper'>"
-            "<div class='left-summary'>" + "".join(left_summary) + "</div>"
-            "<div class='right-summary'>"
-            f"<div class='cts-diff'>{diff_title}</div>"
-            + chart_html
-            + chart_script
-            + degrade_modules_list_html
-            + "</div>"
-            "</div>"
-        )
+        divider_html + "<div class='summary-wrapper'>"
+        "<div class='left-summary'>" + "".join(left_summary) + "</div>"
+        "<div class='right-summary'>"
+        f"<div class='cts-diff'>{diff_title}</div>"
+        + chart_html
+        + chart_script
+        # Degraded modules moved to right column's left-summary
+        + "</div>"
+        "</div>"
+    )
     # Right side keeps its summary tables (module summary removed)
     right_placeholder = "<div class='right-summary' style='visibility:hidden;'></div>"
-    right_summary_combined = (
-        divider_html
-        + f"<div class='summary-wrapper'><div class='left-summary'>{''.join(right_summary)}</div>{right_placeholder}</div>"
+        # Right column: left-summary holds version compare placeholder, right-summary holds summary tables
+    same_modules_set = left_modules & right_modules
+    # Remove ABI prefixes (armeabi‑v7a, arm64‑v8a) from module names for display
+    cleaned_same_modules = []
+    for name in same_modules_set:
+        cleaned = (
+            name.replace("armeabi-v7a ", "")
+                .replace("armeabi-v7a\u00a0", "")
+                .replace("arm64-v8a ", "")
+                .replace("arm64-v8a\u00a0", "")
+                .strip()
+        )
+        cleaned_same_modules.append(cleaned)
+    same_modules_set = set(cleaned_same_modules)
+    same_modules_list_html = (
+        "<div class='degrade-modules' style='margin-top:0.5em;'><span class='suspicious-label'>Same modules:</span><br>"
+        + "<br>".join(sorted(same_modules_set))
+        + "</div>"
     )
+    right_summary_combined = (
+            divider_html
+            + "<div class='summary-wrapper'>"
+            + "<div class='left-summary'>"
+            + f"<div class='cts-diff'>{diff_title}</div>"
+            + same_modules_list_html
+            + degrade_modules_list_html  # Added suspicious modules here
+            + "</div>"
+            + "<div class='right-summary' style='margin-left:auto;'>"
+            + "".join(right_summary)
+            + "</div>"
+            + "</div>"
+        )
 
     if single_mode:
         # Single column layout: use .single-col class, omit right side elements
