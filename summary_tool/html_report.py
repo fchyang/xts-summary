@@ -72,7 +72,11 @@ h2 {margin-top:0.5em;}
     .cts-diff {background:orange; padding:4px; font-weight:bold; text-align:center; margin-top:12px; width:250px;}
     .degrade-modules {color:#b22222;background:none;font-size:0.9em;}
     .chart {margin-top:-0.5em;}
+    .col .chart {margin-top:-0.3em;}
+    /*.single-col .chart {margin-top:0.2em;}*/
     .suspicious-label {color:black;font-weight:bold;background:none;}
+    /*.single-col .degrade-modules {margin-top:0.5em;}*/
+    .col .degrade-modules {margin-top:0.5em;}
     /* Align file path with title in double‑column mode */
     .col .filepath {text-align:left; margin-left:0;}
 
@@ -568,7 +572,7 @@ def generate_report(
     else:
         chart_id = f"moduleChart_{safe_suite}_{chart_index}"
 
-    chart_html = f"<div class='chart' style='margin-top:0.2em'><canvas id='{chart_id}' width='252' height='252' style='width:252px;height:252px;'></canvas></div>"
+    chart_html = f"<div class='chart'><canvas id='{chart_id}' width='252' height='252' style='width:252px;height:252px;'></canvas></div>"
     # Determine label for pie chart based on mode
     label1 = "Incomplete modules" if single_mode else "Same modules"
     chart_script = (
@@ -594,7 +598,7 @@ def generate_report(
         cleaned_module_names.append(cleaned)
     suspicious_set = set(cleaned_module_names)
     degrade_modules_list_html = (
-        "<div class='degrade-modules' style='margin-top:0.5em;'><span class='suspicious-label'>Suspicious modules:</span><br>"
+        "<div class='degrade-modules'><span class='suspicious-label'>Suspicious modules:</span><br>"
         + "<br>".join(sorted(suspicious_set))
         + "</div>"
     )
