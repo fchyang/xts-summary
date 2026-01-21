@@ -27,9 +27,9 @@
 
 ## 使用示例
 
-比如以AATS实际目录为例：
+比如以AATS实际目录为例，
 
-交互模式:  
+交互模式：  
 ```bash
 summary-tool -i http://12.22.193.246/AATS_XTS_REPORTS/_ANR16/DB28
 在远程路径下发现以下子目录:
@@ -64,13 +64,17 @@ summary-tool -i http://12.22.193.246/AATS_XTS_REPORTS/_ANR16/DB28
 编号: 6
 INFO: Merged diff report written to xts_summary.html
 ```
-单参数：
+单参数：  
+```bash
 summary-tool http://12.22.193.246/AATS_XTS_REPORTS/_ANR16/DB2881/20260102_171/
-- 会把171版本下面所有的报告汇总到xts_summary.html，单列显示 
+- 会把171版本下面所有的报告汇总到xts_summary.html，单列显示
+```
 
-双参数：
+双参数：  
+```bash
 summary-tool summary-tool http://12.22.193.246/AATS_XTS_REPORTS/287P_ANR14/DB23/20251130_667/ http://10.22.193.246/AATS_XTS_REPORTS/287P_ANR14/DB23/20251205_672/
 - 会把667、672下面所有报告汇总，然后比对生成xts-diff_summary.html，双列显示
+```
 
 ---
 ### 交互式模式（-i / --interactive）
