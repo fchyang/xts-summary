@@ -1,7 +1,7 @@
 # XTS Summary Tool
 
 ## 简介
-`summary_tool` 是一个用于提取、比较文本或 HTML 内容并生成差异报告的 Python 包。它可以帮助对比两套文档（如稿件、翻译稿等），并生成可视化的 HTML 报告以及汇总页面。
+`summary_tool` 是一个用于提取、比较本地或远程路径*ts文件下HTML内容并生成差异报告的 Python 包。它可以帮助对比两套不同版本跑测的xts report，并生成可视化的 HTML 汇总页面。
 
 ---
 
