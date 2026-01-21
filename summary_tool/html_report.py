@@ -71,6 +71,7 @@ h2 {margin-top:0.5em;}
     /*.col:first-child .summary-wrapper .right-summary {margin-left:-10px !important;}*/
     .cts-diff {background:orange; padding:4px; font-weight:bold; text-align:center; margin-top:12px; width:250px;}
     .degrade-modules {color:#b22222;background:none;font-size:0.9em;}
+    .col .incompletemodules {margin-left:auto; margin-right:auto; width:fit-content;}
     .chart {margin-top:-0.5em;}
     .col .chart {margin-top:-0.3em;}
     /*.single-col .chart {margin-top:0.2em;}*/
