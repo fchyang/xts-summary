@@ -27,6 +27,10 @@ PYPI_USERNAME="__token__"              # PyPI 官方要求的用户名
 # export GITHUB_EMAIL=you@example.com
 # export PYPI_TOKEN=xxxxxx
 
+# 确保 dist 目录干净
+rm -rf dist && mkdir -p dist
+python -m build
+
 # ---------- 读取版本号 ----------
 # 假设 pyproject.toml 中有 `version = "0.1.3"` 这样的行
 VERSION=$(grep '^version\s*=' pyproject.toml | head -1 | cut -d'"' -f2)
@@ -159,10 +163,6 @@ python -m pip install --upgrade pip
 pip install --quiet build twine
 
 echo "📦 本地构建 wheel 与 sdist …"
-# 确保 dist 目录干净
-rm -rf dist && mkdir -p dist
-python -m build
-
 echo "🚀 将构建产物上传至 PyPI …"
 # 通过环境变量传入的 PYPI_TOKEN 进行身份验证
 python -m twine upload dist/* \

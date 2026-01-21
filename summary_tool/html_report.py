@@ -66,8 +66,8 @@ h2 {margin-top:0.5em;}
     .col .left-summary {margin-left:0; margin-right:0;}
     .col .right-summary {margin-left:0;}
     .summary-wrapper .left-summary, .summary-wrapper .right-summary {margin:0; padding:0;}
-    .col:first-child .summary-wrapper .left-summary {transform: translateX(60px);}
-    .col + .col .summary-wrapper .right-summary {transform: translateX(-58px) !important;}
+    .col:first-child .summary-wrapper .left-summary {transform: translateX(58px);}
+    .col + .col .summary-wrapper .right-summary {transform: translateX(-56px) !important;}
     /*.col:first-child .summary-wrapper .right-summary {margin-left:-10px !important;}*/
     .cts-diff {background:orange; padding:4px; font-weight:bold; text-align:center; margin-top:12px; width:250px;}
     .degrade-modules {color:#b22222;background:none;font-size:0.9em;}
@@ -572,7 +572,12 @@ def generate_report(
     else:
         chart_id = f"moduleChart_{safe_suite}_{chart_index}"
 
-    chart_html = f"<div class='chart'><canvas id='{chart_id}' width='252' height='252' style='width:252px;height:252px;'></canvas></div>"
+    # Determine chart size based on layout mode
+    if single_mode:
+        chart_width = chart_height = 230  # slightly smaller for single column
+    else:
+        chart_width = chart_height = 250  # original size for double column
+    chart_html = f"<div class='chart'><canvas id='{chart_id}' width='{chart_width}' height='{chart_height}' style='width:{chart_width}px;height:{chart_height}px;'></canvas></div>"
     # Determine label for pie chart based on mode
     label1 = "Incomplete modules" if single_mode else "Same modules"
     chart_script = (
@@ -677,7 +682,7 @@ def generate_report(
         left_summary_combined = (
             divider_html + "<div class='summary-wrapper'>"
             "<div class='left-summary'>" + "".join(left_summary) + "</div>"
-            "<div class='right-summary' style='display:flex; flex-direction:row; align-items:flex-start; gap:10px; visibility:visible; margin-top:1.5em;'>"
+            "<div class='right-summary' style='display:flex; flex-direction:row; align-items:flex-start; gap:10px; visibility:visible; margin-top:1.5em; margin-left:-2px;'>"
             + "<div class='chart-container'>"
             + chart_html
             + chart_script
