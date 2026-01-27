@@ -14,22 +14,41 @@ Key features added:
 """
 
 import argparse
-import os
-from email.utils import parsedate_to_datetime
 import logging
-import requests
+import os
+import re
+import sys
+from email.utils import parsedate_to_datetime
 from pathlib import Path
 from typing import List
-import sys
 
+import requests
 
-from .extractor import extract_testdetails
-from .comparer import compare_tables, _table_to_df
-from .html_report import generate_report, HTML_HEADER, HTML_FOOTER
 import bs4
+
+from .comparer import compare_tables, _table_to_df
+from .extractor import extract_testdetails
+from .html_report import generate_report, HTML_FOOTER, HTML_HEADER
 from .utils import is_url
 
+# Threshold for auto-selecting files with significant module count
+MODULES_THRESHOLD = 15
+
 log = logging.getLogger(__name__)
+
+
+def _extract_modules_total(tables: list) -> int:
+    """Extract Modules Total value from tables."""
+    for tbl in tables:
+        tbl_html = str(tbl)
+        m = re.search(
+            r"Modules\s*Total[^<]*</[^>]*>\s*<td[^>]*>\s*(\d+)\s*</td>",
+            tbl_html,
+            re.I,
+        )
+        if m:
+            return int(m.group(1))
+    return 0
 
 
 def _sub_variants(name: str) -> list[str]:
@@ -62,8 +81,11 @@ def _candidate(base: str, sub_name: str) -> str:
         return str(Path(base) / sub_name)
 
 
-def _process_remote(left_url: str, subdirs: list[str], temp_dir: Path) -> list[Path]:
+def _process_remote(left_url: str, subdirs: list[str], temp_dir: Path, select_best: bool = True) -> list[Path]:
     """Process remote HTTP directory.
+
+    If select_best is True and there are multiple HTML files per subdir,
+    select the best one based on timestamp and Modules Total.
 
     Returns a list of generated report file paths.
     """
@@ -109,10 +131,57 @@ def _process_remote(left_url: str, subdirs: list[str], temp_dir: Path) -> list[P
                 f"No 'test_result_failures_suite.html' found under remote sub '{sub}'."
             )
             continue
+
+        # If multiple files and select_best is True, choose the best one
+        if len(html_files) > 1 and select_best:
+            # Get timestamp and Modules Total for each file
+            candidates = []
+            for html_file in html_files:
+                try:
+                    # Get timestamp
+                    resp = requests.head(html_file, timeout=10, allow_redirects=True)
+                    if resp.status_code == 200:
+                        lm = resp.headers.get("Last-Modified")
+                        ts = parsedate_to_datetime(lm).timestamp() if lm else 0
+                    else:
+                        ts = 0
+                    # Get Modules Total from the file
+                    title, tables = extract_testdetails(html_file)
+                    modules_total = _extract_modules_total(tables)
+                    candidates.append((html_file, ts, modules_total))
+                except Exception as e:
+                    log.warning(f"Failed to get info for {html_file}: {e}")
+                    candidates.append((html_file, 0, 0))
+
+            # Sort by timestamp descending
+            candidates.sort(key=lambda x: x[1], reverse=True)
+
+            # Select based on criteria: newer with Modules Total > threshold
+            selected = None
+            for html_file, ts, modules_total in candidates:
+                if modules_total > MODULES_THRESHOLD:
+                    selected = html_file
+                    log.info(
+                        f"[Auto-select] Selected newer file with Modules Total > "
+                        f"{MODULES_THRESHOLD}: {html_file} (modules={modules_total})"
+                    )
+                    break
+            if selected is None:
+                # No file with Modules Total > threshold, select the oldest
+                selected = candidates[-1][0] if candidates else html_files[0]
+                log.info(
+                    f"[Auto-select] No file with Modules Total > {MODULES_THRESHOLD}, "
+                    f"selected oldest: {selected}"
+                )
+            html_files = [selected]
+        elif len(html_files) > 1:
+            log.info(f"Multiple files found for '{sub}', using all: {len(html_files)} files")
+
         for idx, left_path in enumerate(html_files, start=1):
             log.debug(f"Processing remote {left_path} for sub '{sub}' (part {idx})")
             left_title, left_tables = extract_testdetails(left_path)
             left_dfs = [_table_to_df(t) for t in left_tables]
+            has_testdetails = any("testdetails" in (t.get("class") or []) for t in left_tables)
             out_path = temp_dir / f"{sub}_{idx}.html"
             generate_report(
                 left_dfs,
@@ -123,13 +192,17 @@ def _process_remote(left_url: str, subdirs: list[str], temp_dir: Path) -> list[P
                 out_path,
                 left_path,
                 None,
+                has_testdetails=has_testdetails,
             )
             generated.append(out_path)
     return generated
 
 
-def _process_local(left_root: str, subdirs: list[str], temp_dir: Path) -> list[Path]:
+def _process_local(left_root: str, subdirs: list[str], temp_dir: Path, select_best: bool = True) -> list[Path]:
     """Process a local directory.
+
+    If select_best is True and there are multiple HTML files per subdir,
+    select the best one based on timestamp and Modules Total.
 
     Returns a list of generated report file paths.
     """
@@ -156,11 +229,53 @@ def _process_local(left_root: str, subdirs: list[str], temp_dir: Path) -> list[P
                     f"No HTML files found under {sub_dir_path}, skipping."
                 )
                 continue
+
+        # If multiple files and select_best is True, choose the best one
+        if len(html_files) > 1 and select_best:
+            # Get timestamp and Modules Total for each file
+            html_candidates = []
+            for html_path in html_files:
+                try:
+                    # Get timestamp (mtime)
+                    ts = html_path.stat().st_mtime
+                    # Get Modules Total from the file
+                    _, left_tables = extract_testdetails(str(html_path))
+                    modules_total = _extract_modules_total(left_tables)
+                    html_candidates.append((str(html_path), ts, modules_total))
+                except Exception as e:
+                    log.warning(f"Failed to get info for {html_path}: {e}")
+                    html_candidates.append((str(html_path), 0, 0))
+
+            # Sort by timestamp descending
+            html_candidates.sort(key=lambda x: x[1], reverse=True)
+
+            # Select based on criteria: newer with Modules Total > threshold
+            selected = None
+            for html_path, ts, modules_total in html_candidates:
+                if modules_total > MODULES_THRESHOLD:
+                    selected = html_path
+                    log.info(
+                        f"[Auto-select] Selected newer file with Modules Total > "
+                        f"{MODULES_THRESHOLD}: {html_path} (modules={modules_total})"
+                    )
+                    break
+            if selected is None:
+                # No file with Modules Total > threshold, select the oldest
+                selected = html_candidates[-1][0] if html_candidates else str(html_files[0])
+                log.info(
+                    f"[Auto-select] No file with Modules Total > {MODULES_THRESHOLD}, "
+                    f"selected oldest: {selected}"
+                )
+            html_files = [Path(selected)]
+        elif len(html_files) > 1:
+            log.info(f"Multiple files found for '{sub}', using all: {len(html_files)} files")
+
         for idx, html_path in enumerate(html_files, start=1):
             left_path = str(html_path)
             log.debug(f"Processing {left_path} for sub '{sub}' (part {idx})")
             left_title, left_tables = extract_testdetails(left_path)
             left_dfs = [_table_to_df(t) for t in left_tables]
+            has_testdetails = any("testdetails" in (t.get("class") or []) for t in left_tables)
             out_path = temp_dir / f"{sub}_{idx}.html"
             generate_report(
                 left_dfs,
@@ -171,6 +286,7 @@ def _process_local(left_root: str, subdirs: list[str], temp_dir: Path) -> list[P
                 out_path,
                 left_path,
                 None,
+                has_testdetails=has_testdetails,
             )
             generated.append(out_path)
     return generated
@@ -182,11 +298,6 @@ def build_parser() -> argparse.ArgumentParser:
     The version string is taken from :mod:`summary_tool.__version__`, which
     mirrors the version declared in *pyproject.toml*.  ``argparse`` handles the
     ``--version`` output automatically via ``action='version'``.
-    """
-    """Create argument parser.
-    Supports providing two HTML files/URLs (left & right) for comparison, or
-    a single directory (left) with ``--recursive`` to automatically locate all
-    ``test_result_failures_suite.html`` files under it.
     """
     parser = argparse.ArgumentParser(
         description="Compare 'testdetails' tables from two HTML sources across multiple subdirectories."
@@ -337,8 +448,6 @@ def main(argv: List[str] | None = None) -> None:
         # 为了递归子目录中的各类报告，保持递归模式并使用默认子目录列表
         args.recursive = True
         args.subdirs = 'cts,ctsongsi,gts,vts,tv_ts,sts'
-        # 保存供后面使用的选择列表（可选）
-        chosen_dirs = chosen
         # Adjust output filename based on whether we now have a right side
         if args.right and args.output == "xts_summary.html":
             args.output = "xts-diff_summary.html"
@@ -488,6 +597,8 @@ def main(argv: List[str] | None = None) -> None:
             elif len(right_tables) > len(left_tables):
                 right_dfs.extend(_table_to_df(t) for t in right_tables[len(left_tables):])
             out_path = temp_dir / f"{sub_name}-diff.html"
+            has_testdetails = any("testdetails" in (t.get("class") or []) for t in left_tables) or \
+                              any("testdetails" in (t.get("class") or []) for t in right_tables)
             generate_report(
                 left_dfs,
                 right_dfs,
@@ -497,11 +608,13 @@ def main(argv: List[str] | None = None) -> None:
                 out_path,
                 left_path,
                 right_path,
+                has_testdetails=has_testdetails,
             )
         else:
             out_path = temp_dir / f"{sub_name}.html"
             # Single‑column mode – newer_side defaults to "left"
             newer_side = "left"
+            has_testdetails = any("testdetails" in (t.get("class") or []) for t in left_tables)
             generate_report(
                 left_dfs,
                 [],
@@ -512,6 +625,7 @@ def main(argv: List[str] | None = None) -> None:
                 left_path,
                 None,
                 newer_side=newer_side,
+                has_testdetails=has_testdetails,
             )
         generated_files.append(out_path)
         # Skip further processing
@@ -521,11 +635,11 @@ def main(argv: List[str] | None = None) -> None:
     if (args.recursive or (
         single_mode and (Path(args.left).is_dir() or is_url(args.left))
     )) and not args.right:
-        # Choose remote or local handling based on left argument type
+        # Single column mode: process all files (no auto-select)
         if is_url(args.left):
-            generated_files.extend(_process_remote(args.left, subdirs, temp_dir))
+            generated_files.extend(_process_remote(args.left, subdirs, temp_dir, select_best=False))
         else:
-            generated_files.extend(_process_local(args.left, subdirs, temp_dir))
+            generated_files.extend(_process_local(args.left, subdirs, temp_dir, select_best=False))
         # After processing all subdirs, skip the normal per‑subdir loop for single‑column mode
         subdirs = []
     # Continue with the original loop (may be empty)
@@ -536,16 +650,101 @@ def main(argv: List[str] | None = None) -> None:
         def _resolve_with_all_variants(base: str, sub_name: str) -> str:
             """Try all case/underscore variants of *sub_name*.
 
-            Returns the first resolved HTML path; if none found, returns the original base (so later code may still attempt a direct URL).
+            If multiple HTML files are found under a subdir, select the best one based on:
+            - For remote: timestamp and Modules Total
+            - For local: mtime and Modules Total
+
+            Returns the selected HTML path, or empty string if not found.
             """
+            candidates = []
             for variant in _sub_variants(sub_name):
                 cand = _candidate(base, variant)
-                resolved = _resolve(str(cand), variant)
-                # If resolution succeeded (i.e., returned something different from the candidate), use it.
-                if resolved != str(cand):
-                    return resolved
-            # Fallback – try the original name without variants
-            return _resolve(str(_candidate(base, sub_name)), sub_name)
+
+                if is_url(str(cand)):
+                    # Remote URL - collect all HTML files
+                    try:
+                        resp = requests.get(str(cand).rstrip("/") + "/", timeout=10)
+                        resp.raise_for_status()
+                        soup = bs4.BeautifulSoup(resp.text, "html.parser")
+                        html_files = []
+                        for a in soup.find_all("a", href=True):
+                            href = a["href"]
+                            if href.endswith("test_result_failures_suite.html"):
+                                full = href if href.startswith("http") else str(cand).rstrip("/") + "/" + href.lstrip("/")
+                                html_files.append(full)
+                            elif href.endswith("/"):
+                                # Recursively collect from subdirectories
+                                sub_url = href if href.startswith("http") else str(cand).rstrip("/") + "/" + href.lstrip("/")
+                                try:
+                                    sub_resp = requests.get(sub_url, timeout=10)
+                                    sub_resp.raise_for_status()
+                                    sub_soup = bs4.BeautifulSoup(sub_resp.text, "html.parser")
+                                    for sub_a in sub_soup.find_all("a", href=True):
+                                        sub_href = sub_a["href"]
+                                        if sub_href.endswith("test_result_failures_suite.html"):
+                                            sub_full = sub_href if sub_href.startswith("http") else sub_url.rstrip("/") + "/" + sub_href.lstrip("/")
+                                            html_files.append(sub_full)
+                                except:
+                                    pass
+                        # Get timestamp and Modules Total for each file
+                        for html_file in html_files:
+                            try:
+                                # Get timestamp
+                                head_resp = requests.head(html_file, timeout=10, allow_redirects=True)
+                                ts = (
+                                    parsedate_to_datetime(head_resp.headers["Last-Modified"]).timestamp()
+                                    if head_resp.status_code == 200 and head_resp.headers.get("Last-Modified")
+                                    else 0
+                                )
+                                # Get Modules Total
+                                _, tables = extract_testdetails(html_file)
+                                modules_total = _extract_modules_total(tables)
+                                candidates.append((html_file, ts, modules_total))
+                            except:
+                                pass
+                    except Exception as e:
+                        log.debug(f"Failed to collect files from {cand}: {e}")
+                else:
+                    # Local path - collect all HTML files
+                    p = Path(str(cand))
+                    if p.is_dir():
+                        html_files = list(p.rglob("test_result_failures_suite.html"))
+                        if not html_files:
+                            html_files = list(p.rglob("*.html"))
+                        for html_path in html_files:
+                            try:
+                                ts = html_path.stat().st_mtime
+                                _, tables = extract_testdetails(str(html_path))
+                                modules_total = _extract_modules_total(tables)
+                                candidates.append((str(html_path), ts, modules_total))
+                            except:
+                                pass
+
+            if not candidates:
+                return ""
+
+            # Select best file based on criteria
+            if len(candidates) == 1:
+                return candidates[0][0]
+
+            # Sort by timestamp descending
+            candidates.sort(key=lambda x: x[1], reverse=True)
+
+            # Select: newer with Modules Total > threshold
+            for html_path, ts, modules_total in candidates:
+                if modules_total > MODULES_THRESHOLD:
+                    log.info(
+                        f"[Auto-select] Selected {html_path} (modules={modules_total})"
+                    )
+                    return html_path
+
+            # No file with Modules Total > threshold, select the oldest
+            selected = candidates[-1][0]
+            log.info(
+                f"[Auto-select] No file with Modules Total > {MODULES_THRESHOLD}, "
+                f"selected oldest: {selected}"
+            )
+            return selected
 
         left_path = _resolve_with_all_variants(args.left, sub)
         right_path = _resolve_with_all_variants(args.right, sub) if args.right else ""
@@ -603,6 +802,7 @@ def main(argv: List[str] | None = None) -> None:
         elif len(right_incomplete) > len(left_incomplete):
             right_dfs.extend(_table_to_df(t) for t in right_incomplete[len(left_incomplete):])
         out_path = temp_dir / f"{sub}-diff.html"
+        has_testdetails = bool(left_testdetails) or bool(right_testdetails)
         generate_report(
                 left_dfs,
                 right_dfs,
@@ -613,6 +813,7 @@ def main(argv: List[str] | None = None) -> None:
                 left_path,
                 right_path if right_path else None,
                 newer_side=newer_side,
+                has_testdetails=has_testdetails,
             )
         generated_files.append(out_path)
 

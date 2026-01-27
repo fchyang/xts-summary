@@ -30,6 +30,15 @@ HTML_HEADER = """<!DOCTYPE html>
 .single-col .summary th, .single-col .summary td {text-align:left;}
 .failuredetails {white-space:normal; word-break:break-all;}
 
+/* testsummary table styles */
+table.testsummary {margin-top:5px; width:fit-content; max-width:100%;}
+table.testsummary th, table.testsummary td {border:1px solid #aaa; padding:4px 8px; text-align:left;}
+table.testsummary th {background:#a5c639 !important;}
+table.testsummary td {background:#d4e9a9 !important;}
+
+/* In single-col mode, ensure testsummary aligns left with other content */
+.single-col table.testsummary {margin-left:0;}
+
 body {font-family:Arial, sans-serif; margin:0; padding:0;}
 .container {display:flex; flex-wrap:wrap; width:100%; overflow-x:auto;}
  .col {flex:0 0 50%; max-width:50%; padding:10px; box-sizing:border-box; overflow-y:auto; overflow-x:hidden; min-width:0;}
@@ -312,6 +321,7 @@ class ReportConfig:
     output_path: Path = Path("diff.html")
     left_summary_source: Optional[Union[Path, str]] = None
     right_summary_source: Optional[Union[Path, str]] = None
+    has_testdetails: bool = False
 
 
 def generate_report(
@@ -325,6 +335,7 @@ def generate_report(
     right_summary_source: Optional[Union[Path, str]] = None,
     report_config: Optional[ReportConfig] = None,
     newer_side: str = "",
+    has_testdetails: bool = False,
 ) -> Path:
     # If a ReportConfig is provided, override individual arguments
     if report_config is not None:
@@ -334,6 +345,8 @@ def generate_report(
         output_path = report_config.output_path
         left_summary_source = report_config.left_summary_source
         right_summary_source = report_config.right_summary_source
+        if report_config.has_testdetails:
+            has_testdetails = report_config.has_testdetails
 
     """Create a two‑column HTML view showing left & right tables.
 
@@ -347,77 +360,89 @@ def generate_report(
     left_summary = (
         _make_summary_table(left_summary_source) if left_summary_source else []
     )
-    # Determine Modules Total and Modules Done from the summary table (if present)
+    right_summary = (
+        _make_summary_table(right_summary_source) if right_summary_source else []
+    )
+
+    # Helper function to search for a numeric value given a label
+    def _search_value(summary_html, label):
+        # Try <th>label</th><td>value</td>
+        pattern = rf"<th[^>]*>\s*{label}\s*:?\s*</th>\s*<td[^>]*>\s*(\d+)\s*</td>"
+        m = re.search(pattern, summary_html, re.IGNORECASE | re.DOTALL)
+        if m:
+            return int(m.group(1))
+        # Try <td class="rowtitle">label</td><td>value</td>
+        pattern = rf'<td[^>]*class\s*=\s*["\'].*?rowtitle.*?["\'][^>]*>\s*{label}\s*</td>\s*<td[^>]*>\s*(\d+)\s*</td>'
+        m = re.search(pattern, summary_html, re.IGNORECASE | re.DOTALL)
+        if m:
+            return int(m.group(1))
+        # Generic fallback
+        pattern = rf"{label}[^<]*</[^>]*>\s*<td[^>]*>\s*(\d+)\s*</td>"
+        m = re.search(pattern, summary_html, re.IGNORECASE | re.DOTALL)
+        if m:
+            return int(m.group(1))
+        return None
+
+    # Determine Modules Total for left side
     modules_total = None
     modules_done = None
     if left_summary:
-        # Combine all summary tables into a single HTML string for regex searches
         summary_html = "".join(left_summary)
-
-        # Helper to search for a numeric value given a label (e.g., 'Modules Total')
-        def _search_value(label):
-            # Try <th>label</th><td>value</td>
-            pattern = rf"<th[^>]*>\s*{label}\s*:?\s*</th>\s*<td[^>]*>\s*(\d+)\s*</td>"
-            m = re.search(pattern, summary_html, re.IGNORECASE | re.DOTALL)
-            if m:
-                return int(m.group(1))
-            # Try <td class="rowtitle">label</td><td>value</td>
-            pattern = rf'<td[^>]*class\s*=\s*["\'].*?rowtitle.*?["\'][^>]*>\s*{label}\s*</td>\s*<td[^>]*>\s*(\d+)\s*</td>'
-            m = re.search(pattern, summary_html, re.IGNORECASE | re.DOTALL)
-            if m:
-                return int(m.group(1))
-            # Generic fallback
-            pattern = rf"{label}[^<]*</[^>]*>\s*<td[^>]*>\s*(\d+)\s*</td>"
-            m = re.search(pattern, summary_html, re.IGNORECASE | re.DOTALL)
-            if m:
-                return int(m.group(1))
-            return None
-
-        modules_total = _search_value("Modules Total")
-        modules_done = _search_value("Modules Done")
+        modules_total = _search_value(summary_html, "Modules Total")
+        modules_done = _search_value(summary_html, "Modules Done")
         log.debug(
-            f"Modules Total parsed: {modules_total}, Modules Done parsed: {modules_done}, summary_html length: {len(summary_html)}"
+            f"Left - Modules Total parsed: {modules_total}, Modules Done: {modules_done}"
         )
-    # Conditional inclusion of testsummary
+
+    # Determine Modules Total for right side (used for right_testsummary)
+    modules_total_right = None
+    if right_summary:
+        summary_html_right = "".join(right_summary)
+        modules_total_right = _search_value(summary_html_right, "Modules Total")
+        log.debug(
+            f"Right - Modules Total parsed: {modules_total_right}"
+        )
+    # Extract testsummary table as a separate block (not part of left_summary)
+    # Rules:
+    # 1. If there are testdetails (has_testdetails), only show testdetails, hide testsummary
+    # 2. If no testdetails, but there is testsummary, and Modules Total < 20, show testsummary
+    # 3. If modules_total cannot be parsed (None), default to NOT showing testsummary
     testsummary = []
-    if not left_dfs:
-        # No testdetails; attempt to extract testsummary table
-        candidate = (
-            _extract_testsummary_table(left_summary_source)
-            if left_summary_source
-            else []
-        )
-        # Ensure testsummary table uses the same styling as summary tables
+    if has_testdetails:
+        # Has testdetails, don't show testsummary
+        testsummary = []
+    elif left_summary_source:
+        # No testdetails, try to extract testsummary
+        candidate = _extract_testsummary_table(left_summary_source)
         if candidate:
-            # Use BeautifulSoup to add class and optional styles
+            # Ensure testsummary table has the correct class and styling
             soup = bs4.BeautifulSoup(candidate[0], "html.parser")
             table_tag = soup.find("table")
             if table_tag:
-                # Add "summary" to class list if not present
                 existing_classes = table_tag.get("class") or []
-                if "summary" not in existing_classes:
-                    existing_classes.append("summary")
+                if "testsummary" not in existing_classes:
+                    existing_classes.append("testsummary")
                 table_tag["class"] = existing_classes
-                if single_mode:
-                    # Add background style to header cells (th)
-                    for th in table_tag.find_all("th"):
-                        prev_style = th.get("style", "")
-                        th["style"] = (
-                            prev_style + ";" if prev_style else ""
-                        ) + "background:#a5c639"
-                    # Add background style to data cells (td)
-                    for td in table_tag.find_all("td"):
-                        prev_style = td.get("style", "")
-                        td["style"] = (
-                            prev_style + ";" if prev_style else ""
-                        ) + "background:#d4e9a9"
-            candidate = [str(soup)]
-        log.debug(f"Testsummary candidate found: {bool(candidate)}")
-        # Include only if Modules Total < 20 (and candidate exists)
-        if candidate and (modules_total is None or modules_total < 20):
-            testsummary = candidate
-    # Append any testsummary to left_summary
-    left_summary.extend(testsummary)
+                # Add background style to header cells (th) and data cells (td)
+                for th in table_tag.find_all("th"):
+                    prev_style = th.get("style", "")
+                    th["style"] = (
+                        prev_style + ";" if prev_style else ""
+                    ) + "background:#a5c639"
+                for td in table_tag.find_all("td"):
+                    prev_style = td.get("style", "")
+                    td["style"] = (
+                        prev_style + ";" if prev_style else ""
+                    ) + "background:#d4e9a9"
+                testsummary = [str(soup)]
+            else:
+                testsummary = candidate
+            # Include only if Modules Total < 20 (and candidate exists)
+            # If modules_total is None (parsing failed), default to NOT showing testsummary
+            if testsummary:
+                if modules_total is None or modules_total >= 20:
+                    testsummary = []
+    log.debug(f"Testsummary candidate found: {bool(testsummary)}, modules_total={modules_total}, has_testdetails={has_testdetails}")
     # Fallback: if parsing failed, extract raw summary table via regex
     if not left_summary and left_summary_source:
         try:
@@ -431,9 +456,7 @@ def generate_report(
                 left_summary = [m.group(0)]
         except Exception:
             pass
-    right_summary = (
-        _make_summary_table(right_summary_source) if right_summary_source else []
-    )
+    # Fallback for right_summary (already created earlier, just in case)
     if not right_summary and right_summary_source:
         try:
             raw_html = Path(right_summary_source).read_text(encoding="utf-8")
@@ -444,6 +467,10 @@ def generate_report(
             )
             if m:
                 right_summary = [m.group(0)]
+                # Also update modules_total_right
+                summary_html_right = "".join(right_summary)
+                modules_total_right = _search_value(summary_html_right, "Modules Total")
+                log.debug(f"Right - Modules Total (fallback) parsed: {modules_total_right}")
         except Exception:
             pass
     # Compute overlap statistics of test names between left and right
@@ -755,6 +782,8 @@ def generate_report(
             left_path_line,
             left_summary_combined,
             *[_make_table(df) for df in left_dfs],
+            # Add testsummary as a separate module below testdetails, left-aligned
+            *testsummary,
             "</div>",
             HTML_FOOTER,
         ]
@@ -770,6 +799,34 @@ def generate_report(
             if right_summary_source
             else ""
         )
+        # Extract testsummary for right side as well
+        # Rules:
+        # 1. If there are testdetails (has_testdetails), only show testdetails, hide testsummary
+        # 2. If no testdetails, but there is testsummary, and right's Modules Total < 20, show testsummary
+        # 3. If modules_total_right cannot be parsed (None), default to NOT showing testsummary
+        right_testsummary = []
+        if has_testdetails:
+            # Has testdetails (on either side), don't show testsummary
+            right_testsummary = []
+        elif right_summary_source:
+            # No testdetails, try to extract testsummary
+            candidate = _extract_testsummary_table(right_summary_source)
+            if candidate:
+                soup = bs4.BeautifulSoup(candidate[0], "html.parser")
+                table_tag = soup.find("table")
+                if table_tag:
+                    existing_classes = table_tag.get("class") or []
+                    if "testsummary" not in existing_classes:
+                        existing_classes.append("testsummary")
+                    table_tag["class"] = existing_classes
+                    right_testsummary = [str(soup)]
+                else:
+                    right_testsummary = candidate
+            # Include only if right's Modules Total < 20 (and candidate exists)
+            # If modules_total_right is None (parsing failed), default to NOT showing testsummary
+            if right_testsummary:
+                if modules_total_right is None or modules_total_right >= 20:
+                    right_testsummary = []
         parts = [
             HTML_HEADER,
             f"<div class='col'>",
@@ -777,12 +834,16 @@ def generate_report(
             left_path_line,
             left_summary_combined,
             *[_make_table(df) for df in left_dfs],
+            # Add testsummary as a separate module below testdetails, left-aligned
+            *testsummary,
             "</div>",
             f"<div class='col'>",
             f"<h2>{right_title}</h2>" if right_title else "",
             right_path_line,
             right_summary_combined,
             *[_make_table(df) for df in right_dfs],
+            # Add testsummary for right side
+            *right_testsummary,
             "</div>",
             HTML_FOOTER,
         ]

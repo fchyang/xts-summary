@@ -70,7 +70,7 @@ if [[ -n "${GITHUB_EMAIL:-}" ]]; then
   git config user.email "${GITHUB_EMAIL}"
 fi
 
-git add -A
+git add -u .
 # 若已经没有变化，git commit 会报错，这里捕获并忽略
 # 若提供额外信息，则拼接到 commit 信息中
 if [[ "$#" -gt 0 ]]; then

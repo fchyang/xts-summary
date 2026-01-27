@@ -15,3 +15,10 @@
  - [v] 在 `cli.main()` 中使用 `sys.exit` 返回非零码（错误时）。
  - [v] 统一日志配置为库内部 `log = logging.getLogger(__name__)`，让调用方决定日志级别。
  - [v] 使用 `black`、`flake8` 自动格式化并修复 PEP8 警告。
+
+1. 添加常量 MODULES_THRESHOLD = 15
+2. 提取公共函数 _extract_modules_total(tables)
+3. 统一导入顺序（PEP 8)
+4. 修复变量 shadowing（_process_local 中的 candidates → html_candidates
+5. 统一日志级别（_process_local 第253行 log.debug → log.warning                                                                                                            6. 删除未使用的变量 chosen_dirs
+7. 删除 build_parser() 中重复的 docstring  
