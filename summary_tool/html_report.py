@@ -22,13 +22,16 @@ HTML_HEADER = """<!DOCTYPE html>
 <html><head><meta charset='utf-8'><title>Table Diff</title><base target="_blank">
 <style>
 /*added for single column layout*/
-.single-col {flex:0 0 72%; max-width:72%; padding:10px; box-sizing:border-box; overflow-y:auto; overflow-x:hidden; min-width:0; margin:0 auto;}
+.single-col {flex:0 0 85%; max-width:85%; padding:10px; box-sizing:border-box; overflow-y:auto; overflow-x:hidden; min-width:0; margin:0 auto;}
 .single-col h2 {margin-left:auto; margin-right:auto; text-align:center;}
 .filepath {margin-top:0.2em; margin-bottom:0.5em; text-align:center; font-size:0.96em; color:#555; word-break:break-all; overflow-wrap:anywhere;}
-.single-col .summary, .single-col .testdetails, .single-col .incompletemodules {margin-left:auto; margin-right:auto; text-align:left;}
+.single-col .summary, .single-col .testdetails, .single-col .incompletemodules {margin-left:auto; margin-right:auto; text-align:left; max-width:100%;}
 
-.single-col .summary th, .single-col .summary td {text-align:left;}
+.single-col .summary th, .single-col .summary td {text-align:left; min-width:150px;}
+.single-col .summary td {max-width:60%;}
 .failuredetails {white-space:normal; word-break:break-all;}
+
+.single-col .degrade-modules {word-break:break-word;}
 
 /* testsummary table styles */
 table.testsummary {margin-top:5px; width:fit-content; max-width:100%;}
@@ -73,19 +76,13 @@ h2 {margin-top:0.5em;}
     .col + .col .right-summary {visibility:visible; width:auto;}
     .summary-wrapper .right-summary {display:flex; flex-direction:column; gap:5px;}
     .col .left-summary {margin-left:0; margin-right:0;}
-    .col .right-summary {margin-left:0;}
     .summary-wrapper .left-summary, .summary-wrapper .right-summary {margin:0; padding:0;}
-    .col:first-child .summary-wrapper .left-summary {transform: translateX(58px);}
-    .col + .col .summary-wrapper .right-summary {transform: translateX(-56px) !important;}
-    /*.col:first-child .summary-wrapper .right-summary {margin-left:-10px !important;}*/
-    .cts-diff {background:orange; padding:4px; font-weight:bold; text-align:center; margin-top:12px; width:250px;}
-    .degrade-modules {color:#b22222;background:none;font-size:0.9em;}
+    .cts-diff {background:orange; padding:4px; font-weight:bold; text-align:center; margin-top:12px; width:auto; max-width:250px; min-width:250px;}
+    .degrade-modules {color:#b22222;background:none;font-size:0.9em; word-break:break-word;}
     .col .incompletemodules {margin-left:auto; margin-right:auto; width:fit-content;}
     .chart {margin-top:-0.5em;}
     .col .chart {margin-top:-0.3em;}
-    /*.single-col .chart {margin-top:0.2em;}*/
     .suspicious-label {color:black;font-weight:bold;background:none;}
-    /*.single-col .degrade-modules {margin-top:0.5em;}*/
     .col .degrade-modules {margin-top:0.5em;}
     /* Align file path with title in double‑column mode */
     .col .filepath {text-align:left; margin-left:0;}
@@ -723,8 +720,8 @@ def generate_report(
     else:
         left_summary_combined = (
         divider_html + "<div class='summary-wrapper'>"
-        "<div class='left-summary'>" + "".join(left_summary) + "</div>"
-        "<div class='right-summary' style='margin-left:auto;'>"
+        "<div class='left-summary' style='margin-left:auto;'>" + "".join(left_summary) + "</div>"
+        "<div class='right-summary'>"
         f"<div class='cts-diff'>{diff_title}</div>"
         + chart_html
         + chart_script
@@ -761,7 +758,7 @@ def generate_report(
             + same_modules_list_html
             + degrade_modules_list_html  # Added suspicious modules here
             + "</div>"
-            + "<div class='right-summary' style='margin-left:auto;'>"
+            + "<div class='right-summary'>"
             + "".join(right_summary)
             + "</div>"
             + "</div>"

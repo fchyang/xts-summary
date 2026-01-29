@@ -1,6 +1,6 @@
 [project]
 name = "summary-tool"
-version = "2.0.0"
+version = "2.0.1"
 description = "Compare testdetails tables from HTML reports and generate diff/summary HTML reports."
 readme = "README.md"
 requires-python = ">=3.11"
